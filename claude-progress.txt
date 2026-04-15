@@ -464,3 +464,35 @@ Summary: Tests: 0/0 passed. Verdict: fix
 
 ---
 
+
+## Session 6 — 2026-04-15: Feature #2 修复（评估驱动修复 - 第二轮）
+
+### 问题
+上一轮评估报告 "eval JSON extraction failed after 2 attempts (CC exit=1)"。根本原因是 Jest 测试运行完成后不退出（glob 包的异步操作未关闭），导致 Jest 进程挂起或以非零退出码结束，评估器无法正确解析 JSON 输出。
+
+### 修复内容
+
+**关键修复：Jest 挂起问题**
+- jest.config.js 添加 `forceExit: true`，确保测试完成后 Jest 立即退出
+- 这解决了 glob 包异步操作导致的进程挂起问题
+
+**代码质量改进：**
+- FileCollector.isCodeFile: 移除对 `.test.*` 文件的错误排除（审查工具应该能审查测试文件）
+- GitDiffCollector.parseDiffLine: 改进空行处理逻辑和注释，更清晰地区分空行（split 产物）与 diff 内容行
+- 移除 `prefix === ''` 的冗余判断，只保留 `+`/`-`/` ` 三种有效前缀
+
+**清理：**
+- 删除了约 250 个测试留下的临时目录 (__tests__/input/temp-*)
+
+### 验证结果
+- 全部 13 个验证条件通过
+- Tests: 114/114 passed
+- tsc --noEmit: PASS
+- dist 导出验证: PASS
+## Session 3 — 2026-04-15 18:08:28
+Feature: #2 输入采集层 -- 实现 Git diff 解析器和文件/目录扫描器，能将待审查代码转化为结构化的 ReviewRequest，包含变更代码及其周围上下文
+Result: done
+Summary: Tests: 114/114 passed. Criteria: 13/13 met. Verdict: pass
+
+---
+
