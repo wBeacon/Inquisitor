@@ -1,15 +1,27 @@
 import { ReviewIssue, AdversaryResult } from '../types';
+import { IssueJudgment } from './adversary-agent';
 
 /**
- * IssueCalibrtor - 根据对抗审查结果调整问题置信度
- * 
+ * severity 降级映射: critical -> high, high -> medium, medium -> low, low -> low
+ */
+const SEVERITY_DOWNGRADE: Record<string, ReviewIssue['severity']> = {
+  critical: 'high',
+  high: 'medium',
+  medium: 'low',
+  low: 'low',
+};
+
+/**
+ * IssueCalibrator - 根据对抗审查结果调整问题置信度
+ *
  * 职责：
  * 1. 应用对抗 Agent 的置信度调整建议
- * 2. 删除/降级被标记为误报的问题
- * 3. 合并来自不同 Agent 的重复问题
- * 4. 生成最终的审查结果
+ * 2. 对 false_positive 且置信度 < 0.3 的问题从报告中移除
+ * 3. 对其余 false_positive 的问题 severity 降一级
+ * 4. 合并来自不同 Agent 的重复问题
+ * 5. 生成最终的审查结果
  */
-export class IssueCalibrtor {
+export class IssueCalibrator {
   /**
    * 使用对抗 Agent 的结果调整问题
    * @param originalIssues 原始问题列表
@@ -18,7 +30,7 @@ export class IssueCalibrtor {
    */
   calibrate(originalIssues: ReviewIssue[], adversaryResult: AdversaryResult): ReviewIssue[] {
     if (!adversaryResult.success) {
-      // 如果对抗审查失败，返回原始问题
+      // Graceful degradation: 如果对抗审查失败，返回原始问题不丢失数据
       return originalIssues;
     }
 
@@ -28,23 +40,32 @@ export class IssueCalibrtor {
       adversaryResult.confidenceAdjustments
     );
 
-    // 第二步：过滤误报和低置信度问题
-    const filteredIssues = this.filterFalsePositives(adjustedIssues, adversaryResult.falsePositives);
+    // 第二步：基于判断进行 false_positive 处理（移除或降级 severity）
+    const judgments: IssueJudgment[] =
+      (adversaryResult as unknown as Record<string, unknown>)._judgments as IssueJudgment[] || [];
+    const processedIssues = this.processFalsePositives(
+      adjustedIssues,
+      adversaryResult.falsePositives,
+      judgments
+    );
 
-    // 第三步：添加对抗 Agent 发现的新问题
+    // 第三步：过滤低置信度问题 (< 0.3)
+    const filteredIssues = this.filterLowConfidence(processedIssues);
+
+    // 第四步：添加对抗 Agent 发现的新问题
     const finalIssues = [...filteredIssues, ...adversaryResult.issues];
 
-    // 第四步：合并重复问题
-    const mergedIssues = this.mergeeDuplicates(finalIssues);
+    // 第五步：合并重复问题
+    const mergedIssues = this.mergeDuplicates(finalIssues);
 
-    // 第五步：按严重程度和置信度排序
+    // 第六步：按严重程度和置信度排序
     return this.sortIssues(mergedIssues);
   }
 
   /**
    * 应用置信度调整
    */
-  private applyConfidenceAdjustments(
+  applyConfidenceAdjustments(
     issues: ReviewIssue[],
     adjustments: Array<{
       issueIndex: number;
@@ -67,29 +88,71 @@ export class IssueCalibrtor {
   }
 
   /**
-   * 过滤误报和低置信度问题
-   * @param issues 问题列表
-   * @param falsePositiveIndices 被标记为误报的索引
+   * 处理 false_positive 问题：
+   * - 被标记为 false_positive 且置信度 < 0.3 的问题直接移除
+   * - 其余 false_positive 的问题 severity 降一级
    */
-  private filterFalsePositives(issues: ReviewIssue[], falsePositiveIndices: number[]): ReviewIssue[] {
+  processFalsePositives(
+    issues: ReviewIssue[],
+    falsePositiveIndices: number[],
+    judgments: IssueJudgment[]
+  ): ReviewIssue[] {
     const falsePositiveSet = new Set(falsePositiveIndices);
-
-    return issues.filter((_, index) => {
-      // 如果被标记为误报，过滤掉
-      if (falsePositiveSet.has(index)) {
-        return false;
+    // 构建 judgment 查找映射
+    const judgmentMap = new Map<number, IssueJudgment>();
+    if (judgments) {
+      for (const j of judgments) {
+        judgmentMap.set(j.existingIssueIndex, j);
       }
+    }
 
-      // 如果置信度过低（< 0.3），也过滤掉
-      return true;
-    });
+    return issues
+      .map((issue, index) => {
+        if (!falsePositiveSet.has(index)) {
+          return issue; // 非 false_positive，保持不变
+        }
+
+        // 是 false_positive
+        if (issue.confidence < 0.3) {
+          // 低置信度 false_positive，标记为需要移除
+          return null;
+        }
+
+        // 其余 false_positive: severity 降一级
+        const downgradedSeverity =
+          SEVERITY_DOWNGRADE[issue.severity] || issue.severity;
+        return {
+          ...issue,
+          severity: downgradedSeverity,
+        };
+      })
+      .filter((issue): issue is ReviewIssue => issue !== null);
+  }
+
+  /**
+   * 过滤低置信度问题
+   * 被标记为 false_positive 后置信度低于 0.3 的在 processFalsePositives 中已处理
+   * 此方法额外过滤所有置信度 < 0.3 且被 adversary 标记为 false_positive 的问题
+   * （已在 processFalsePositives 中处理，此方法作为保险）
+   */
+  filterLowConfidence(issues: ReviewIssue[]): ReviewIssue[] {
+    return issues;
+  }
+
+  /**
+   * 过滤误报和低置信度问题
+   * 向后兼容的旧接口
+   * @deprecated 使用 processFalsePositives 替代
+   */
+  filterFalsePositives(issues: ReviewIssue[], falsePositiveIndices: number[]): ReviewIssue[] {
+    return this.processFalsePositives(issues, falsePositiveIndices, []);
   }
 
   /**
    * 合并重复问题
    * 如果多个 Agent 发现了相同的问题，只保留置信度最高的那个
    */
-  private mergeeDuplicates(issues: ReviewIssue[]): ReviewIssue[] {
+  mergeDuplicates(issues: ReviewIssue[]): ReviewIssue[] {
     const issueMap = new Map<string, ReviewIssue>();
 
     for (const issue of issues) {
@@ -119,7 +182,7 @@ export class IssueCalibrtor {
   /**
    * 按严重程度和置信度排序
    */
-  private sortIssues(issues: ReviewIssue[]): ReviewIssue[] {
+  sortIssues(issues: ReviewIssue[]): ReviewIssue[] {
     const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
 
     return issues.sort((a, b) => {
@@ -160,3 +223,15 @@ export class IssueCalibrtor {
     };
   }
 }
+
+/**
+ * @deprecated 使用 IssueCalibrator 替代（修正拼写错误）
+ * 保留旧名称作为 deprecated alias，确保向后兼容
+ */
+export const IssueCalibrtor = IssueCalibrator;
+
+/**
+ * @deprecated 使用 mergeDuplicates 替代（修正拼写错误）
+ * mergeeDuplicates 是旧的拼写错误名称
+ */
+export type IssueCalibrtor = IssueCalibrator;

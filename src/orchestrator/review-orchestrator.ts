@@ -16,7 +16,7 @@ import {
   MaintainabilityAgent,
   EdgeCaseAgent,
   AdversaryAgent,
-  IssueCalibrtor,
+  IssueCalibrator,
 } from '../agents';
 
 /**
@@ -57,7 +57,7 @@ interface OrchestrationContext {
  */
 export class ReviewOrchestrator {
   private config: Required<OrchestratorConfig>;
-  private calibrator: IssueCalibrtor;
+  private calibrator: IssueCalibrator;
   private dimensionAgents: Array<{
     agent: LogicAgent | SecurityAgent | PerformanceAgent | MaintainabilityAgent | EdgeCaseAgent;
     dimension: ReviewDimension;
@@ -74,7 +74,7 @@ export class ReviewOrchestrator {
       enableCache: config?.enableCache || false,
     };
 
-    this.calibrator = new IssueCalibrtor();
+    this.calibrator = new IssueCalibrator();
 
     // Initialize dimension agents
     this.dimensionAgents = [
