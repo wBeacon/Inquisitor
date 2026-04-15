@@ -122,8 +122,8 @@ export class GitDiffCollector {
         continue;
       }
 
-      // 处理 hunk 内容行
-      if (currentHunk && (line.startsWith('+') || line.startsWith('-') || line.startsWith(' ') || line === '')) {
+      // 处理 hunk 内容行（+新增、-删除、空格上下文）
+      if (currentHunk && (line.startsWith('+') || line.startsWith('-') || line.startsWith(' '))) {
         const diffLine = this.parseDiffLine(line);
         if (diffLine) {
           (currentHunk.lines as DiffLine[]).push(diffLine);
@@ -144,9 +144,16 @@ export class GitDiffCollector {
 
   /**
    * 解析单行 diff 行
+   * 支持 +（新增）、-（删除）、空格（上下文）三种前缀
    */
   private parseDiffLine(line: string): DiffLine | null {
+    // 跳过文件头标记行
     if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@')) {
+      return null;
+    }
+
+    // 空行跳过（通常是 split('\n') 产生的末尾空元素）
+    if (line === '') {
       return null;
     }
 
@@ -157,10 +164,11 @@ export class GitDiffCollector {
       return { type: 'add', content };
     } else if (prefix === '-') {
       return { type: 'remove', content };
-    } else if (prefix === ' ' || prefix === '') {
+    } else if (prefix === ' ') {
       return { type: 'context', content };
     }
 
+    // 未知前缀的行不纳入 diff 结果
     return null;
   }
 

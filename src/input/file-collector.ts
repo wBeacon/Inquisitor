@@ -208,11 +208,10 @@ export class FileCollector {
       '.md', '.txt', '.ini', '.conf', '.config',
     ];
 
-    // 排除的模式
+    // 排除的模式（只排除明确的非代码文件）
     const excludePatterns = [
-      /\.min\.(js|css)$/, // minified
-      /\.test\.[a-z]+$/, // test files (optional, 可根据需要调整)
-      /\.(jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|eot)$/, // binary
+      /\.min\.(js|css)$/, // 压缩后的文件
+      /\.(jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|eot)$/, // 二进制资源文件
     ];
 
     if (!codeExtensions.includes(ext)) {
