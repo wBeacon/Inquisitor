@@ -5,9 +5,10 @@ import { LOGIC_AGENT_PROMPT } from './prompts';
 /**
  * LogicAgent - 专注于逻辑正确性审查
  * 检查控制流、数据流、循环、空值处理、类型匹配等逻辑问题
+ * 通过 Anthropic SDK 调用 Claude API，每次审查使用独立的 API session
  */
 export class LogicAgent extends AgentRunner {
-  constructor(config?: Partial<AgentConfig>) {
+  constructor(config?: Partial<AgentConfig>, timeout?: number) {
     const defaultConfig: AgentConfig = {
       id: config?.id || 'logic-agent',
       name: config?.name || 'Logic Correctness Agent',
@@ -21,30 +22,39 @@ export class LogicAgent extends AgentRunner {
       temperature: config?.temperature || 0.5,
     };
 
-    super(defaultConfig);
+    super(defaultConfig, timeout);
   }
 
   /**
    * 执行逻辑审查
-   * 在实际实现中，这会调用 Claude Code Agent tool
+   * 调用 Claude API 并解析返回的审查结果
    */
   protected async performReview(
     files: string[],
     context: string
   ): Promise<ReviewIssue[]> {
-    // 这是一个占位符实现
-    // 在实际集成中，这会调用 Claude Code 的 Agent tool
-    // 并传递 systemPrompt 和代码上下文
+    // 构建用户消息，包含文件列表和代码上下文
+    const userMessage = this.buildUserMessage(files, context);
 
-    console.log(`LogicAgent reviewing ${files.length} files`);
+    // 调用 Claude API
+    const responseText = await this.callClaudeAPI(userMessage);
 
-    // 模拟 Agent 执行
-    // 实际实现会：
-    // 1. 调用 Claude Code Agent API
-    // 2. 传递 systemPrompt 作为 system 角色消息
-    // 3. 传递代码上下文和文件列表
-    // 4. 解析返回的 JSON 审查结果
+    // 健壮地解析 JSON 响应，自动修正 dimension
+    return this.parseJsonResponse(responseText);
+  }
 
-    return [];
+  /**
+   * 构建发送给 Claude 的用户消息
+   */
+  private buildUserMessage(files: string[], context: string): string {
+    return `请审查以下代码的逻辑正确性。
+
+## 待审查文件
+${files.map((f) => `- ${f}`).join('\n')}
+
+## 代码内容
+${context}
+
+请按照系统提示中的格式要求，返回 JSON 数组。如果没有发现问题，返回空数组 []。`;
   }
 }
