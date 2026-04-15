@@ -18,7 +18,7 @@ SWE-bench 冠军方案（如 OpenHands/Devin）： 它们通常包含一个 Veri
 
 ## Planned Features
 
-- [ ] Feature #1: 项目脚手架与核心类型系统 -- 建立 TypeScript 项目结构、定义所有核心接口（ReviewRequest、ReviewIssue、ReviewReport 等），以及 review 维度枚举（逻辑正确性、安全性、性能、可维护性、边界情况）
+- [x] Feature #1: 项目脚手架与核心类型系统 -- 建立 TypeScript 项目结构、定义所有核心接口（ReviewRequest、ReviewIssue、ReviewReport 等），以及 review 维度枚举（逻辑正确性、安全性、性能、可维护性、边界情况）
 - [ ] Feature #2: 输入采集层 -- 实现 Git diff 解析器和文件/目录扫描器，能将待审查代码转化为结构化的 ReviewRequest，包含变更代码及其周围上下文
 - [ ] Feature #3: 维度审查 Agent 系统 -- 实现多个独立的维度审查 Agent，每个 Agent 专注一个审查维度，拥有独立的 system prompt 和审查策略，通过 Claude Code 的 Agent tool 以隔离上下文运行
 - [ ] Feature #4: 对抗式 Adversary Agent -- 实现独立的对抗审查器，接收所有维度 Agent 的审查结果，以全新视角重新审视代码，专门寻找被遗漏的问题并挑战已有结论中的误报
@@ -27,3 +27,25 @@ SWE-bench 冠军方案（如 OpenHands/Devin）： 它们通常包含一个 Veri
 - [ ] Feature #7: Claude Code Skill 集成 -- 将整个 review 引擎封装为 Claude Code Skill，支持 /review 命令调用，处理参数解析、配置加载、进度反馈
 
 ---
+
+## Session 1 - 2026-04-15: Feature #1 完成
+
+### 完成内容
+- 初始化 TypeScript 项目: package.json (name: inquisitor), tsconfig.json (strict, ES2022, bundler)
+- 定义核心类型 (src/types/review.ts):
+  - ReviewDimension 枚举: Logic, Security, Performance, Maintainability, EdgeCases
+  - ReviewIssue: file, line, severity, dimension, description, suggestion, confidence 等字段
+  - ReviewReport: issues(ReviewIssue[]), summary(bySeverity/byDimension), metadata(durationMs/tokenUsage)
+  - ReviewRequest: files, diff, context, dimensions, mode 等字段
+  - 辅助类型: Severity, SeverityCount, ReviewSummary, ReviewMetadata, TokenUsage, FileToReview, ContextConfig
+- 定义 Agent 协议接口 (src/types/agent.ts):
+  - AgentConfig: id, name, description, dimension, systemPrompt, model, maxTokens, temperature
+  - AgentResult: agentId, issues, durationMs, tokenUsage, success, error
+  - DimensionAgent / AdversaryAgent / Orchestrator 接口
+  - AdversaryResult: 扩展 AgentResult，增加 falsePositives 和 confidenceAdjustments
+- 统一导出入口 src/types/index.ts
+- 建立模块目录: src/agents/, src/orchestrator/, src/input/, src/output/, src/skill/，各含 index.ts 占位
+
+### 验证
+- 全部 11 个验证条件通过
+- tsc --noEmit 零错误
