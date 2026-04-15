@@ -1,0 +1,7 @@
+node_modules/
+dist/
+
+# claude-forever temp files
+.cf/
+CLAUDE.md.cf-backup
+control.json

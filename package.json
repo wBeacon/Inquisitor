@@ -1,0 +1,24 @@
+{
+  "name": "inquisitor",
+  "version": "0.1.0",
+  "description": "高强度代码审查工具 - 以对抗式 Agent 模式深度审查代码质量",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist/"
+  },
+  "keywords": [
+    "code-review",
+    "agent",
+    "adversarial",
+    "static-analysis"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "@types/node": "^20.11.0"
+  }
+}
