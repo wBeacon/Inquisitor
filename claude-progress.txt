@@ -164,3 +164,56 @@ Summary: Tests: 39/39 passed. Criteria: 4/4 met. Verdict: pass
 - ✅ 5 个维度 Agent 能并行启动执行，通过 Promise.all() 实现高效调度
 
 ---
+
+## Session 3 — 2026-04-15 16:45:00
+Feature: #4 对抗式 Adversary Agent -- 实现独立的对抗审查器
+Result: done
+Summary: Tests: 52/52 passed. Criteria: 4/4 met. Verdict: pass
+
+### 完成内容
+- 实现 AdversaryAgent 类 (src/agents/adversary-agent.ts):
+  - challenge() 方法接收已有的 ReviewIssue[] 和独立代码上下文
+  - 返回 AdversaryResult，包含新发现问题、已有问题的误报标记和置信度调整建议
+  - 温度设置为 0.7 以鼓励创意思考
+  - 支持自定义配置
+
+- 实现 IssueCalibrtor 类 (src/agents/issue-calibrator.ts):
+  - calibrate(): 合并原始问题和对抗审查结果，应用所有校准
+  - applyConfidenceAdjustments(): 根据对抗审查建议调整置信度分数
+  - filterFalsePositives(): 移除被标记为误报的问题
+  - mergeDuplicates(): 合并重复问题，选择更高的置信度
+  - sortIssues(): 按严重程度和置信度排序
+  - generateCalibrationSummary(): 生成校准统计摘要
+
+- 完整的对抗审查提示 (src/agents/prompts/index.ts):
+  - ADVERSARY_AGENT_PROMPT: 15+ 项对抗审查检查清单
+  - 要求 JSON 输出格式
+  - 重点在于寻找被遗漏的问题和挑战现有结论
+
+- 统一导出入口 (src/agents/index.ts):
+  - 导出 AdversaryAgent 和 IssueCalibrtor
+  - 导出相关的接口类型
+
+- 测试覆盖 (__tests__/agents/adversary-agent.test.ts):
+  - 13 个针对 AdversaryAgent 和 IssueCalibrtor 的测试
+  - 验证 Agent 配置、challenge 方法、置信度调整
+  - 验证误报过滤、重复问题合并、排序逻辑
+  - 总计 13 个新测试，全部通过
+  - 整个测试套件 52 个测试全部通过
+
+### 验证清单
+- ✅ AdversaryAgent 在隔离的上下文中独立分析代码
+- ✅ AdversaryAgent 的输出（新问题、误报、置信度调整）严格符合 AdversaryResult 类型定义
+- ✅ IssueCalibrtor 能应用所有置信度调整并正确过滤误报
+- ✅ 最终问题列表经过去重、排序和校准处理
+
+### 下一步
+Feature #5: 编排器 (Orchestrator) -- 实现整个 review 流程的编排逻辑
+- 实现 ReviewOrchestrator 类
+- 并行执行 5 个维度 Agent
+- 执行对抗审查
+- 应用结果校准
+- 生成最终报告
+
+---
+
