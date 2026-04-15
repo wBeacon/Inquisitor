@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/18</span>
+                <span class='fraction'>18/18</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">77.77% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>7/9</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">0% </span>
+                <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/9</span>
+                <span class='fraction'>9/9</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line low'></div>
+    <div class='status-line high'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -144,15 +144,15 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">52x</span>
+<span class="cline-any cline-yes">37x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">33x</span>
+<span class="cline-any cline-yes">34x</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">24x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
  * 维度审查 Agent 系统 - 实现多个独立的审查 Agent
  *
@@ -189,15 +189,15 @@
  * ```
  */
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >A</span>gentRunner </span>} from './agent-runner';</span>
-<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >L</span>ogicAgent </span>} from './logic-agent';</span>
-<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >S</span>ecurityAgent </span>} from './security-agent';</span>
-<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >P</span>erformanceAgent </span>} from './performance-agent';</span>
-<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >M</span>aintainabilityAgent </span>} from './maintainability-agent';</span>
-<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >E</span>dgeCaseAgent </span>} from './edge-case-agent';</span>
-<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >A</span>dversaryAgent,</span> type IssueJudgment, type AdversaryReviewResponse } from './adversary-agent';</span>
-<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >I</span>ssueCalibrator,</span> <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >I</span>ssueCalibrtor </span>} from './issue-calibrator';</span>
-<span class="cstat-no" title="statement not covered" >export * from './prompts';</span>
+export { <span class="fstat-no" title="function not covered" >AgentRunner </span>} from './agent-runner';
+export { LogicAgent } from './logic-agent';
+export { SecurityAgent } from './security-agent';
+export { PerformanceAgent } from './performance-agent';
+export { MaintainabilityAgent } from './maintainability-agent';
+export { EdgeCaseAgent } from './edge-case-agent';
+export { AdversaryAgent, type IssueJudgment, type AdversaryReviewResponse } from './adversary-agent';
+export { IssueCalibrator, <span class="fstat-no" title="function not covered" >IssueCalibrtor </span>} from './issue-calibrator';
+export * from './prompts';
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -205,7 +205,7 @@
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-15T11:23:53.226Z
+                at 2026-04-15T11:37:17.828Z
             </div>
         <script src="../prettify.js"></script>
         <script>
