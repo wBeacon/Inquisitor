@@ -847,3 +847,39 @@ Summary: Tests: 141/141 passed. Criteria: 12/12 met. Verdict: pass
 
 ---
 
+## Session 10 — 2026-04-15: Feature #4 重写（满足 11 个验收条件）
+
+### 问题
+之前 Session 3 实现的 Feature #4 对抗式 Adversary Agent 是占位符实现：performAdversaryReview 没有真实 API 调用，IssueCalibrtor 有拼写错误，filterFalsePositives 没有实现低置信度过滤，severity 降级逻辑缺失。
+
+### 修复内容
+
+**核心重写 - AdversaryAgent (src/agents/adversary-agent.ts):**
+- 新增 callClaudeAPI()：每次创建独立 Anthropic 客户端实例
+- performAdversaryReview() 改为真实 API 调用
+- 健壮 JSON 解析：处理 markdown code fence、trailing comma
+- validateNewIssues()：强制 dimension 为 'adversary-found'
+- validateJudgments()：确保 reason 非空，无效输入默认 confirmed
+- Graceful degradation：API 失败不丢失原始结果
+
+**ADVERSARY_AGENT_PROMPT 迁移:**
+- 迁移到独立文件 src/agents/prompts/adversary-prompt.ts
+- prompts/index.ts re-export 保持向后兼容
+
+**IssueCalibrator 修正:**
+- IssueCalibrtor -> IssueCalibrator（保留旧名为 deprecated alias）
+- mergeeDuplicates -> mergeDuplicates
+- 新增 processFalsePositives()：低置信度(<0.3) false_positive 移除，其余降级 severity
+- severity 降级：critical->high, high->medium, medium->low, low->low
+
+**测试: 28 个用例**
+- 三种判定类型、adversary-found 标记、API 调用、graceful degradation
+- severity 降级、低置信度移除、拼写兼容、JSON 解析鲁棒性
+
+### 验证结果
+- Tests: 156/156 passed
+- tsc --noEmit: PASS
+- adversary-agent.ts 行覆盖率: 100%
+
+---
+
