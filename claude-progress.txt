@@ -1377,3 +1377,10 @@ Summary: Tests: 226/226 passed. Criteria: 12/12 met. Verdict: pass
 
 ---
 
+## Session 8 — 2026-04-15 20:52:00
+Feature: #7 Claude Code Skill 集成 -- 将整个 review 引擎封装为 Claude Code Skill，支持 /review 命令调用，处理参数解析、配置加载、进度反馈
+Result: fix
+Summary: Tests: 249/249 passed. Criteria: 12/13 met. Blocking issues: 1. Verdict: fix
+
+---
+

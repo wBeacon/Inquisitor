@@ -25,13 +25,15 @@ SWE-bench 冠军方案（如 OpenHands/Devin）： 它们通常包含一个 Veri
 - [x] Feature #3: 维度审查 Agent 系统 -- 实现多个独立的维度审查 Agent，每个 Agent 专注一个审查维度，拥有独立的 system prompt 和审查策略，通过 Claude Code 的 Agent tool 以隔离上下文运行
 - [x] Feature #4: 对抗式 Adversary Agent -- 实现独立的对抗审查器，接收所有维度 Agent 的审查结果，以全新视角重新审视代码，专门寻找被遗漏的问题并挑战已有结论中的误报
 - [x] Feature #5: 编排器 (Orchestrator) -- 实现整个 review 流程的编排逻辑: 采集输入 -> 并行维度审查 -> 对抗审查 -> 去重校准 -> 生成报告
+- [x] Feature #6: 输出层与报告生成 -- 实现 JSON 和 Markdown 双格式报告生成器，JSON 供 CodeAgent 程序化消费，Markdown 供人类阅读
 
-**Current feature:** #6: 输出层与报告生成 -- 实现 JSON 和 Markdown 双格式报告生成器，JSON 供 CodeAgent 程序化消费，Markdown 供人类阅读
+**Current feature:** #7: Claude Code Skill 集成 -- 将整个 review 引擎封装为 Claude Code Skill，支持 /review 命令调用，处理参数解析、配置加载、进度反馈
 **Steps:**
-- 实现 JsonReporter: 输出符合类 SARIF 格式的 JSON 报告
-- 实现 MarkdownReporter: 生成可读性好的 Markdown 报告，按 severity 分组，包含代码片段引用
-- 实现 SummaryGenerator: 生成简洁的统计摘要（N 个 critical、N 个 high...）
-- 实现报告写入: 支持输出到 stdout、文件、或直接返回给调用方
+- 创建 skill 定义文件（skill.md 或对应格式），定义 /review 命令
+- 实现参数解析: /review（默认审查 git diff）、/review path/to/file、/review --full src/（全目录扫描）、/review --fast（跳过对抗阶段）
+- 实现配置文件支持: .inquisitor.json 或 .inquisitorrc，允许项目级自定义审查规则、忽略模式、severity 阈值
+- 实现进度反馈: 审查过程中向用户输出阶段进度（正在分析输入... 正在并行审查... 正在对抗校验...）
+- 实现入口文件: 将 skill 命令映射到 Orchestrator 调用
 
 **Rules:**
 - Do NOT remove or weaken existing tests
