@@ -1,4 +1,4 @@
-import { ReviewOrchestrator, OrchestratorConfig } from '../../src/orchestrator';
+import { ReviewOrchestrator, OrchestratorConfig, ExtendedReviewMetadata } from '../../src/orchestrator';
 import { ReviewRequest, ReviewDimension, ReviewIssue } from '../../src/types';
 
 describe('ReviewOrchestrator', () => {
@@ -9,7 +9,7 @@ describe('ReviewOrchestrator', () => {
 
       expect(config.model).toBe('claude-opus');
       expect(config.maxParallel).toBe(5);
-      expect(config.agentTimeout).toBe(120000);
+      expect(config.agentTimeout).toBe(300000);
       expect(config.totalTimeout).toBe(600000);
       expect(config.enableAdversary).toBe(true);
       expect(config.enableCache).toBe(false);
@@ -418,6 +418,162 @@ describe('ReviewOrchestrator', () => {
 
       // Should run selected agents (3 agents)
       expect(report.metadata.agents.length).toBe(3);
+    });
+  });
+
+  describe('stage error handling', () => {
+    it('should throw stage-named error when a stage fails', async () => {
+      const orchestrator = new ReviewOrchestrator({ enableAdversary: false });
+
+      // 通过传入 null files 来触发 input 阶段失败
+      const badRequest = {
+        files: null,
+        context: {
+          contextLines: 50,
+          includeFullFile: true,
+          includeDependencies: false,
+          projectRoot: './',
+        },
+        mode: 'review',
+      } as unknown as ReviewRequest;
+
+      await expect(orchestrator.run(badRequest)).rejects.toThrow(/Stage \[.*\] failed:/);
+    });
+  });
+
+  describe('stage duration timing', () => {
+    it('should record stage durations in metadata', async () => {
+      const orchestrator = new ReviewOrchestrator({ enableAdversary: false });
+
+      const request: ReviewRequest = {
+        files: [{ path: 'test.ts', content: 'const x = 1;' }],
+        context: {
+          contextLines: 50,
+          includeFullFile: true,
+          includeDependencies: false,
+          projectRoot: './',
+        },
+        mode: 'review',
+      };
+
+      const report = await orchestrator.run(request);
+      const metadata = report.metadata as ExtendedReviewMetadata;
+
+      // 验证 stages 字段存在且包含各阶段耗时
+      expect(metadata.stages).toBeDefined();
+      expect(typeof metadata.stages.input).toBe('number');
+      expect(typeof metadata.stages.dimensionReview).toBe('number');
+      expect(typeof metadata.stages.calibration).toBe('number');
+      expect(typeof metadata.stages.reportGeneration).toBe('number');
+      expect(metadata.stages.input).toBeGreaterThanOrEqual(0);
+      expect(metadata.stages.dimensionReview).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should include adversary phase timing when enabled', async () => {
+      const orchestrator = new ReviewOrchestrator({ enableAdversary: true });
+
+      const request: ReviewRequest = {
+        files: [{ path: 'test.ts', content: 'const x = 1;' }],
+        context: {
+          contextLines: 50,
+          includeFullFile: true,
+          includeDependencies: false,
+          projectRoot: './',
+        },
+        mode: 'review',
+      };
+
+      const report = await orchestrator.run(request);
+      const metadata = report.metadata as ExtendedReviewMetadata;
+
+      expect(typeof metadata.stages.adversaryReview).toBe('number');
+    });
+  });
+
+  describe('per-agent token usage', () => {
+    it('should record agent token usage in metadata', async () => {
+      const orchestrator = new ReviewOrchestrator({ enableAdversary: false });
+
+      const request: ReviewRequest = {
+        files: [{ path: 'test.ts', content: 'const x = 1;' }],
+        context: {
+          contextLines: 50,
+          includeFullFile: true,
+          includeDependencies: false,
+          projectRoot: './',
+        },
+        mode: 'review',
+      };
+
+      const report = await orchestrator.run(request);
+      const metadata = report.metadata as ExtendedReviewMetadata;
+
+      // 验证 agentTokenUsage 字段
+      expect(metadata.agentTokenUsage).toBeDefined();
+      expect(typeof metadata.agentTokenUsage).toBe('object');
+
+      // 每个参与的 agent 都应该有 token 记录
+      for (const agentId of metadata.agents) {
+        expect(metadata.agentTokenUsage[agentId]).toBeDefined();
+        expect(typeof metadata.agentTokenUsage[agentId].input).toBe('number');
+        expect(typeof metadata.agentTokenUsage[agentId].output).toBe('number');
+        expect(typeof metadata.agentTokenUsage[agentId].total).toBe('number');
+      }
+    });
+  });
+
+  describe('skip dimensions', () => {
+    it('should skip specified dimensions via skipDimensions config', async () => {
+      const orchestrator = new ReviewOrchestrator({
+        enableAdversary: false,
+        skipDimensions: [ReviewDimension.Performance, ReviewDimension.Maintainability, ReviewDimension.EdgeCases],
+      });
+
+      const request: ReviewRequest = {
+        files: [{ path: 'test.ts', content: 'const x = 1;' }],
+        context: {
+          contextLines: 50,
+          includeFullFile: true,
+          includeDependencies: false,
+          projectRoot: './',
+        },
+        mode: 'review',
+      };
+
+      const report = await orchestrator.run(request);
+
+      // 应该只有 logic 和 security 两个 agent
+      expect(report.metadata.agents.length).toBe(2);
+      expect(report.metadata.agents.some((a) => a.includes('logic'))).toBe(true);
+      expect(report.metadata.agents.some((a) => a.includes('security'))).toBe(true);
+      expect(report.metadata.agents.some((a) => a.includes('performance'))).toBe(false);
+    });
+  });
+
+  describe('graceful timeout and incomplete marking', () => {
+    it('should mark timed out agents as incomplete in metadata', async () => {
+      // 使用极短超时触发超时
+      const orchestrator = new ReviewOrchestrator({
+        enableAdversary: false,
+        agentTimeout: 1, // 1ms 超时
+      });
+
+      const request: ReviewRequest = {
+        files: [{ path: 'test.ts', content: 'const x = 1;' }],
+        context: {
+          contextLines: 50,
+          includeFullFile: true,
+          includeDependencies: false,
+          projectRoot: './',
+        },
+        mode: 'review',
+      };
+
+      const report = await orchestrator.run(request);
+      const metadata = report.metadata as ExtendedReviewMetadata;
+
+      // 所有 agent 都应该超时，标记为 incomplete
+      expect(metadata.incompleteDimensions.length).toBeGreaterThan(0);
     });
   });
 });
