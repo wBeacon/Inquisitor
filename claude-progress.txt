@@ -112,3 +112,55 @@ Feature #3: 维度审查 Agent 系统
 - 实现并行执行调度
 
 ---
+
+## Session 2 (continued) — 2026-04-15 16:30:00
+Feature: #3 维度审查 Agent 系统 -- 实现多个独立的维度审查 Agent
+Result: done
+Summary: Tests: 39/39 passed. Criteria: 4/4 met. Verdict: pass
+
+### 完成内容
+- 实现 AgentRunner 基础类 (src/agents/agent-runner.ts):
+  - 抽象基类定义 Agent 执行接口
+  - 处理初始化、执行、超时和错误处理
+  - 跟踪 token 使用和执行时间
+  - 提供 JSON 解析和格式化工具函数
+
+- 实现 5 个维度 Agent:
+  - LogicAgent (src/agents/logic-agent.ts): 逻辑正确性检查
+  - SecurityAgent (src/agents/security-agent.ts): 安全漏洞检查
+  - PerformanceAgent (src/agents/performance-agent.ts): 性能问题检查
+  - MaintainabilityAgent (src/agents/maintainability-agent.ts): 可维护性检查
+  - EdgeCaseAgent (src/agents/edge-case-agent.ts): 边界情况检查
+
+- 完整的系统提示 (src/agents/prompts/index.ts):
+  - LOGIC_AGENT_PROMPT: 10+ 个逻辑检查清单
+  - SECURITY_AGENT_PROMPT: 12+ 个安全检查清单
+  - PERFORMANCE_AGENT_PROMPT: 10+ 个性能检查清单
+  - MAINTAINABILITY_AGENT_PROMPT: 10+ 个可维护性检查清单
+  - EDGE_CASE_AGENT_PROMPT: 10+ 个边界情况检查清单
+  - 每个 prompt 都要求：
+    * 明确输出 JSON 格式
+    * 包含具体的触发条件和复现步骤
+    * "证明代码是错的"的目标导向
+    * 置信度分数（0-1）的指导
+
+- 统一导出入口 (src/agents/index.ts):
+  - 导出所有 5 个维度 Agent
+  - 导出 AgentRunner 基类
+  - 导出所有系统提示
+
+- 测试覆盖 (__tests__/agents/):
+  - 15 个针对维度 Agent 的测试
+  - 验证 Agent 配置正确性
+  - 验证系统提示完整性
+  - 验证并行执行能力
+  - 验证 Agent 独立性
+  - 总计 39 个测试，全部通过
+
+### 验证清单
+- ✅ 每个维度 Agent 通过 AgentRunner 在隔离子进程中运行
+- ✅ 每个 Agent 的输出严格符合 ReviewIssue[] 类型定义
+- ✅ 每个 Agent 的 system prompt 包含该维度的具体检查清单（10+ 项）
+- ✅ 5 个维度 Agent 能并行启动执行，通过 Promise.all() 实现高效调度
+
+---
