@@ -1335,3 +1335,45 @@ Summary: Tests: 226/226 passed. Criteria: 12/12 met. Verdict: pass
 
 ---
 
+## Session 8 — 2026-04-15: Feature #7 Claude Code Skill 集成
+
+### 完成内容
+
+**新增 src/skill/skill.md:**
+- Claude Code Skill 定义文件，包含 name、description、trigger 条件
+- 完整的使用示例、参数说明、配置文件格式
+
+**新增 src/skill/review-command.ts:**
+- parseReviewArgs() 参数解析器
+- 支持空参数（diff模式）、裸路径（file模式）、--full（directory模式）
+- 支持 --fast（跳过对抗审查）、--formats、--dimensions
+- 支持多参数组合使用
+
+**新增 src/skill/config-loader.ts:**
+- loadConfig() 从项目根目录加载 .inquisitor.json
+- 配置文件不存在时返回默认配置（不抛异常）
+- 支持 ignore 模式、rules、severityThreshold、dimensions、formats
+- 无效 JSON 时优雅降级
+
+**新增 src/skill/progress-reporter.ts:**
+- ProgressReporter 类，5个审查阶段的进度反馈
+- 支持自定义回调函数
+- 阶段：collecting、reviewing、adversary、reporting、done
+
+**新增 src/index.ts:**
+- 统一入口，导出所有公共 API
+- 包含 ReviewSkill、parseReviewArgs、loadConfig、ProgressReporter 等
+
+**测试 (23 个新测试):**
+- review-command.test.ts: 10 个测试
+- config-loader.test.ts: 6 个测试
+- config-ignore-integration.test.ts: 4 个测试（使用 minimatch 验证 ignore 模式）
+- progress-reporter.test.ts: 3 个测试
+
+### 验证结果
+- Tests: 249/249 passed
+- tsc --noEmit: PASS
+- 全部 13 个验收条件通过
+
+---
+
