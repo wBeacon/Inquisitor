@@ -44,6 +44,8 @@ export interface ReviewIssue {
   foundBy?: string;
   /** 相关代码片段 */
   codeSnippet?: string;
+  /** 对抗审查判定结果: confirmed=确认问题, disputed=存疑, false_positive=误报 */
+  adversaryVerdict?: 'confirmed' | 'disputed' | 'false_positive';
 }
 
 /**
