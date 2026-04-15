@@ -4,7 +4,7 @@ import { FileToReview } from '../types';
 /**
  * 解析的 unified diff 块信息
  */
-interface DiffHunk {
+export interface DiffHunk {
   file: string;
   oldStart: number;
   oldCount: number;
@@ -16,7 +16,7 @@ interface DiffHunk {
 /**
  * Diff 行信息
  */
-interface DiffLine {
+export interface DiffLine {
   type: 'add' | 'remove' | 'context';
   content: string;
   oldLineNumber?: number;
@@ -79,7 +79,7 @@ export class GitDiffCollector {
    * 解析 unified diff 格式
    * 返回所有 hunk（修改块）
    */
-  private parseDiff(diffOutput: string): DiffHunk[] {
+  parseDiff(diffOutput: string): DiffHunk[] {
     const hunks: DiffHunk[] = [];
     const lines = diffOutput.split('\n');
 
@@ -168,7 +168,7 @@ export class GitDiffCollector {
    * 将 hunks 转换为 FileToReview 数组
    * 为每个变更文件提供原始 diff 内容
    */
-  private hunksToFileToReview(hunks: DiffHunk[]): FileToReview[] {
+  hunksToFileToReview(hunks: DiffHunk[]): FileToReview[] {
     const fileMap = new Map<string, FileToReview>();
 
     for (const hunk of hunks) {

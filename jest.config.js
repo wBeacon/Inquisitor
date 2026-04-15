@@ -10,4 +10,6 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
+  // 确保 verbose 模式使用默认 reporter 输出测试名称
+  reporters: ['default'],
 };

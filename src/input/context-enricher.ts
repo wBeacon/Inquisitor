@@ -18,8 +18,8 @@ export class ContextEnricher {
     maxTotalSize?: number;
     projectRoot?: string;
   } = {}) {
-    this.maxDepth = options.maxDepth || 2;
-    this.maxTotalSize = options.maxTotalSize || 500 * 1024; // 500KB default
+    this.maxDepth = options.maxDepth ?? 2;
+    this.maxTotalSize = options.maxTotalSize ?? 500 * 1024; // 500KB 默认值
     this.projectRoot = options.projectRoot || process.cwd();
   }
 
@@ -51,6 +51,7 @@ export class ContextEnricher {
       await this.discoverDependencies(
         dependencies,
         enrichedMap,
+        file.path,
         0
       );
     }
@@ -89,18 +90,22 @@ export class ContextEnricher {
 
   /**
    * 递归发现依赖文件
+   * @param dependencies 依赖路径列表
+   * @param fileMap 已发现的文件集合
+   * @param sourceFilePath 当前正在处理的源文件路径（用于解析相对路径）
+   * @param depth 当前递归深度
    */
   private async discoverDependencies(
     dependencies: string[],
     fileMap: Map<string, FileToReview>,
+    sourceFilePath: string,
     depth: number
   ): Promise<void> {
     if (depth >= this.maxDepth || this.currentSize >= this.maxTotalSize) {
       return;
     }
 
-    const filePath = Array.from(fileMap.keys())[fileMap.size - 1];
-    const fileDir = dirname(resolve(this.projectRoot, filePath));
+    const fileDir = dirname(resolve(this.projectRoot, sourceFilePath));
 
     for (const depPath of dependencies) {
       if (this.currentSize >= this.maxTotalSize) {
@@ -127,7 +132,7 @@ export class ContextEnricher {
             relativePath,
             file.content || ''
           );
-          await this.discoverDependencies(subDeps, fileMap, depth + 1);
+          await this.discoverDependencies(subDeps, fileMap, relativePath, depth + 1);
         }
       }
     }

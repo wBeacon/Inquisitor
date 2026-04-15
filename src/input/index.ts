@@ -23,5 +23,6 @@
  */
 
 export { GitDiffCollector } from './git-diff-collector';
+export type { DiffHunk, DiffLine } from './git-diff-collector';
 export { FileCollector } from './file-collector';
 export { ContextEnricher } from './context-enricher';
