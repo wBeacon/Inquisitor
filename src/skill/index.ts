@@ -1,5 +1,17 @@
 /**
- * Skill 模块入口
- * 负责 Claude Code Skill 集成，提供 /review 命令
+ * Skill 模块 - Claude Code Skill 集成
+ * 
+ * 核心类：
+ * - ReviewSkill: 代码审查 Skill 的主类
+ * 
+ * 使用方式：
+ * ```typescript
+ * const skill = new ReviewSkill();
+ * const result = await skill.execute({
+ *   mode: 'diff',
+ *   formats: 'markdown,json'
+ * });
+ * ```
  */
-export {};
+
+export { ReviewSkill, SkillParams, SkillResult } from './review-skill';
