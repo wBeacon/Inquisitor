@@ -796,3 +796,47 @@ Comprehensive Agents Implementation Exploration and Documentation
 - ✅ claude-progress.txt已更新
 
 ---
+
+## Session 9 — 2026-04-15: Feature #3 重写（满足 12 个验收条件）
+
+### 问题
+之前 Session 2-3 实现的 Feature #3 维度审查 Agent 系统全部是占位符实现，performReview 方法直接 return []，没有真正调用 Claude API。评估器的 12 个验收条件大部分无法通过。
+
+### 修复内容
+
+**核心重写 - AgentRunner (src/agents/agent-runner.ts):**
+- 新增 callClaudeAPI() 方法：每次调用创建独立的 Anthropic 客户端实例（完全隔离）
+- 新增健壮 JSON 解析 parseJsonResponse()：处理 markdown code fence、多余文本包裹、trailing comma、单引号替代双引号
+- 新增 schema 验证 validateAndFixIssues()：验证必填字段类型、强制修正 dimension、限制 confidence 到 0-1 范围、过滤无效 issue
+- 新增可配置超时：通过 Promise.race 实现，超时返回 success=false 而非抛异常
+- 新增 token usage 追踪：从 API 响应中提取实际的 input/output token 数量
+- getConfig() 返回配置副本而非引用，确保隔离
+
+**5 个维度 Agent 重写:**
+- LogicAgent、SecurityAgent、PerformanceAgent、MaintainabilityAgent、EdgeCaseAgent
+- 全部改为调用 callClaudeAPI + parseJsonResponse
+- 构建结构化的 user message（包含文件列表和代码上下文）
+- 支持自定义 timeout 参数
+
+**依赖更新:**
+- 新增 @anthropic-ai/sdk 依赖
+- 修复 ts-jest 版本兼容性问题（29.4.9 -> 29.1.1）
+
+**测试重写 (__tests__/agents/dimension-agents.test.ts):**
+- 42 个测试用例（原 15 个），覆盖所有 12 个验收条件
+- API integration (5), Agent isolation (3), Output schema validation (4)
+- System prompt checkpoints (2), Parallel execution (1), Error handling (4)
+- Dimension enforcement (2), JSON parsing robustness (5)
+- Token usage tracking (2), Timeout configuration (3)
+- 原有配置测试保持兼容 (11)
+
+### 验证结果
+- Tests: 141/141 passed
+- tsc --noEmit: PASS
+- src/agents/ 行覆盖率: 94.73% (>= 80%)
+- 无 @ts-ignore 或 as any
+- 无 return [] 占位符
+- 无共享可变状态
+- 所有 12 个验收条件通过
+
+---
