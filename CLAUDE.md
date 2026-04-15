@@ -19,13 +19,15 @@ SWE-bench 冠军方案（如 OpenHands/Devin）： 它们通常包含一个 Veri
 我的想法就是像最后一个方向一样，证明CodeAgent写的代码是错的，直到它找不到错位置。
 工具可以只负责review不负责修改，也可以同时负责修改并再次进入review-修改的循环，这个你可以定或者我们先讨论再定。
 
+**Completed features:**
+- [x] Feature #1: 项目脚手架与核心类型系统 -- 建立 TypeScript 项目结构、定义所有核心接口（ReviewRequest、ReviewIssue、ReviewReport 等），以及 review 维度枚举（逻辑正确性、安全性、性能、可维护性、边界情况）
 
-**Current feature:** #1: 项目脚手架与核心类型系统 -- 建立 TypeScript 项目结构、定义所有核心接口（ReviewRequest、ReviewIssue、ReviewReport 等），以及 review 维度枚举（逻辑正确性、安全性、性能、可维护性、边界情况）
+**Current feature:** #2: 输入采集层 -- 实现 Git diff 解析器和文件/目录扫描器，能将待审查代码转化为结构化的 ReviewRequest，包含变更代码及其周围上下文
 **Steps:**
-- 初始化 TypeScript 项目（package.json、tsconfig.json、ESLint）
-- 定义核心类型: ReviewRequest（输入）、ReviewIssue（单个问题，含文件/行号/严重等级/置信度/修复建议）、ReviewReport（汇总报告）、ReviewDimension（审查维度枚举）
-- 定义 Agent 协议接口: DimensionAgent（维度审查器）、AdversaryAgent（对抗审查器）、Orchestrator（编排器）
-- 建立模块化目录结构: src/types/, src/agents/, src/orchestrator/, src/input/, src/output/, src/skill/
+- 实现 GitDiffCollector: 调用 git diff 获取变更，解析 unified diff 格式，提取变更文件列表、变更行及周围上下文（前后各 50 行）
+- 实现 FileCollector: 接受文件路径或 glob 模式，读取完整文件内容
+- 实现 ContextEnricher: 对每个变更文件，读取相关的导入文件、类型定义文件、测试文件，作为辅助上下文
+- 统一输出 ReviewRequest 对象
 
 **Rules:**
 - Do NOT remove or weaken existing tests

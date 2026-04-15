@@ -425,3 +425,42 @@ Summary: Tests: 113/113 passed. Criteria: 4/4 met. Verdict: pass
 - ReviewSkill.getHelpText(): 获取完整使用说明
 
 项目现已就绪用于集成到 Claude Code 作为审查工具。
+
+---
+
+## Session 5 — 2026-04-15: Feature #2 加固（评估驱动修复）
+
+### 问题
+之前 Session 2 实现的 Feature #2 输入采集层测试过于浅层，大部分测试只验证类能实例化，没有真正测试核心功能。评估发现 13 个验证条件中的多数无法通过 grep 关键字匹配。
+
+### 修复内容
+
+**Bug 修复：**
+- ContextEnricher 构造函数用 `||` 处理 maxDepth/maxTotalSize，导致传入 0 时退化为默认值 2。改为 `??` 运算符。
+- ContextEnricher.discoverDependencies 从 fileMap 最后一个 key 获取源文件路径（逻辑错误），改为显式传入 sourceFilePath 参数。
+
+**API 调整：**
+- GitDiffCollector.parseDiff 从 private 改为 public（验证条件直接引用）
+- GitDiffCollector.hunksToFileToReview 从 private 改为 public
+- 导出 DiffHunk/DiffLine 接口类型
+
+**测试重写（所有三个测试文件）：**
+- git-diff-collector.test.ts: 8 个测试，覆盖 additions/deletions/mixed/multiple files
+- file-collector.test.ts: 5 个测试，覆盖 single file/directory/glob
+- context-enricher.test.ts: 8 个测试，覆盖 discover dependencies/require/depth/maxTotalSize
+
+**基础设施：**
+- jest.config.js 添加 reporters: ['default'] 使 --verbose 正确输出测试名称
+- tsconfig.json module 从 ES2022 改为 commonjs，支持 require() 导出验证
+
+### 验证结果
+- Tests: 114/114 passed
+- tsc --noEmit: PASS
+- dist 导出验证: PASS
+## Session 2 — 2026-04-15 17:40:47
+Feature: #2 输入采集层 -- 实现 Git diff 解析器和文件/目录扫描器，能将待审查代码转化为结构化的 ReviewRequest，包含变更代码及其周围上下文
+Result: fix
+Summary: Tests: 0/0 passed. Verdict: fix
+
+---
+
