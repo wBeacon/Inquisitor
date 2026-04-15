@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>17/17</span>
+                <span class='fraction'>0/18</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>7/8</span>
+                <span class='fraction'>0/9</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">100% </span>
+                <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>9/9</span>
+                <span class='fraction'>0/9</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line low'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -144,24 +144,24 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4x</span>
-<span class="cline-any cline-yes">53x</span>
-<span class="cline-any cline-yes">38x</span>
-<span class="cline-any cline-yes">35x</span>
-<span class="cline-any cline-yes">34x</span>
-<span class="cline-any cline-yes">35x</span>
-<span class="cline-any cline-yes">32x</span>
-<span class="cline-any cline-yes">25x</span>
-<span class="cline-any cline-yes">4x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
  * 维度审查 Agent 系统 - 实现多个独立的审查 Agent
- * 
+ *
  * 架构设计：
  * 1. AgentRunner: 基础抽象类，定义 Agent 执行接口
  * 2. 五个维度 Agent: LogicAgent、SecurityAgent、PerformanceAgent、MaintainabilityAgent、EdgeCaseAgent
  * 3. AdversaryAgent: 对抗式审查，以全新视角寻找遗漏问题和质疑误报
- * 4. IssueCalibrtor: 根据对抗审查结果调整置信度和去重
- * 
+ * 4. IssueCalibrator: 根据对抗审查结果调整置信度和去重
+ *
  * 典型用法：
  * ```typescript
  * // 并行执行所有维度 Agent
@@ -172,32 +172,32 @@
  *   new MaintainabilityAgent(),
  *   new EdgeCaseAgent(),
  * ];
- * 
+ *
  * const dimensionResults = await Promise.all(
  *   dimensionAgents.map(agent =&gt; agent.review(files, context))
  * );
- * 
+ *
  * const allIssues = dimensionResults.flatMap(r =&gt; r.issues);
- * 
+ *
  * // 运行对抗审查
  * const adversary = new AdversaryAgent();
  * const adversaryResult = await adversary.challenge(files, context, allIssues);
- * 
+ *
  * // 调整问题
- * const calibrator = new IssueCalibrtor();
+ * const calibrator = new IssueCalibrator();
  * const finalIssues = calibrator.calibrate(allIssues, adversaryResult);
  * ```
  */
 &nbsp;
-export { <span class="fstat-no" title="function not covered" >AgentRunner </span>} from './agent-runner';
-export { LogicAgent } from './logic-agent';
-export { SecurityAgent } from './security-agent';
-export { PerformanceAgent } from './performance-agent';
-export { MaintainabilityAgent } from './maintainability-agent';
-export { EdgeCaseAgent } from './edge-case-agent';
-export { AdversaryAgent, type IssueJudgment, type AdversaryReviewResponse } from './adversary-agent';
-export { IssueCalibrtor } from './issue-calibrator';
-export * from './prompts';
+<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >A</span>gentRunner </span>} from './agent-runner';</span>
+<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >L</span>ogicAgent </span>} from './logic-agent';</span>
+<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >S</span>ecurityAgent </span>} from './security-agent';</span>
+<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >P</span>erformanceAgent </span>} from './performance-agent';</span>
+<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >M</span>aintainabilityAgent </span>} from './maintainability-agent';</span>
+<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >E</span>dgeCaseAgent </span>} from './edge-case-agent';</span>
+<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >A</span>dversaryAgent,</span> type IssueJudgment, type AdversaryReviewResponse } from './adversary-agent';</span>
+<span class="cstat-no" title="statement not covered" >export { <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >I</span>ssueCalibrator,</span> <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >I</span>ssueCalibrtor </span>} from './issue-calibrator';</span>
+<span class="cstat-no" title="statement not covered" >export * from './prompts';</span>
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -205,7 +205,7 @@ export * from './prompts';
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-15T10:43:52.589Z
+                at 2026-04-15T11:23:53.226Z
             </div>
         <script src="../prettify.js"></script>
         <script>

@@ -22,16 +22,15 @@ SWE-bench 冠军方案（如 OpenHands/Devin）： 它们通常包含一个 Veri
 **Completed features:**
 - [x] Feature #1: 项目脚手架与核心类型系统 -- 建立 TypeScript 项目结构、定义所有核心接口（ReviewRequest、ReviewIssue、ReviewReport 等），以及 review 维度枚举（逻辑正确性、安全性、性能、可维护性、边界情况）
 - [x] Feature #2: 输入采集层 -- 实现 Git diff 解析器和文件/目录扫描器，能将待审查代码转化为结构化的 ReviewRequest，包含变更代码及其周围上下文
+- [x] Feature #3: 维度审查 Agent 系统 -- 实现多个独立的维度审查 Agent，每个 Agent 专注一个审查维度，拥有独立的 system prompt 和审查策略，通过 Claude Code 的 Agent tool 以隔离上下文运行
 
-**Current feature:** #3: 维度审查 Agent 系统 -- 实现多个独立的维度审查 Agent，每个 Agent 专注一个审查维度，拥有独立的 system prompt 和审查策略，通过 Claude Code 的 Agent tool 以隔离上下文运行
+**Current feature:** #4: 对抗式 Adversary Agent -- 实现独立的对抗审查器，接收所有维度 Agent 的审查结果，以全新视角重新审视代码，专门寻找被遗漏的问题并挑战已有结论中的误报
 **Steps:**
-- 实现 AgentRunner: 封装 Claude Code Agent tool 调用，确保每个 agent 在独立上下文中运行
-- 实现 LogicAgent: 专注逻辑正确性 -- 控制流错误、off-by-one、空值处理、类型不匹配、竞态条件
-- 实现 SecurityAgent: 专注安全漏洞 -- 注入、XSS、权限绕过、敏感信息泄露、不安全的依赖
-- 实现 PerformanceAgent: 专注性能问题 -- N+1 查询、内存泄漏、不必要的计算、阻塞操作
-- 实现 MaintainabilityAgent: 专注可维护性 -- 代码重复、过度复杂度、命名不当、缺失错误处理、违反 SOLID
-- 实现 EdgeCaseAgent: 专注边界情况 -- 空输入、超大输入、并发场景、网络失败、磁盘满
-- 每个 Agent 的 prompt 中明确要求: 以'证明代码是错的'为目标，必须给出具体的触发条件和复现步骤
+- 实现 AdversaryAgent: 在全新隔离上下文中运行，不继承任何维度 Agent 的偏见
+- Adversary 接收两部分输入: (1) 原始代码 (2) 所有维度 Agent 的审查结果
+- Adversary 执行两个任务: (1) 遗漏发现 -- 找出所有维度 Agent 都没发现的问题 (2) 误报挑战 -- 对每个已有 issue 给出是否为误报的判断和理由
+- 实现置信度校准: 根据 Adversary 的反馈调整原始 issue 的置信度分数
+- 实现去重与合并逻辑: 合并不同 Agent 发现的相同问题，保留最高置信度的描述
 
 **Rules:**
 - Do NOT remove or weaken existing tests
