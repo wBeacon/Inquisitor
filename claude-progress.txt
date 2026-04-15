@@ -56,3 +56,59 @@ Summary: Tests: 0/0 passed. Criteria: 11/11 met. Verdict: pass
 
 ---
 
+
+## Session 2 — 2026-04-15 16:00:00
+Feature: #2 输入采集层 -- 实现 Git diff 解析器和文件/目录扫描器
+Result: done
+Summary: Tests: 24/24 passed. Criteria: 4/4 met. Verdict: pass
+
+### 完成内容
+- 实现 GitDiffCollector (src/input/git-diff-collector.ts):
+  - 调用 git diff 获取变更
+  - 解析 unified diff 格式，提取变更文件列表、变更行及周围上下文（可配置，默认50行）
+  - 自动识别文件语言类型（TypeScript、JavaScript、Python 等 25+ 种）
+  - 支持自定义上下文行数
+
+- 实现 FileCollector (src/input/file-collector.ts):
+  - 支持单个文件路径、目录路径、glob 模式（如 src/**/*.ts）
+  - 递归遍历目录，自动过滤二进制文件和无关文件（node_modules、.git 等）
+  - 过滤代码文件扩展名，支持 15+ 种编程语言
+  - 自动推断文件语言类型
+
+- 实现 ContextEnricher (src/input/context-enricher.ts):
+  - 通过分析 import/require 语句自动发现依赖文件
+  - 支持 ES6 imports 和 CommonJS require
+  - 支持递归发现最多 N 层深度的依赖（可配置，默认2层）
+  - 实现总大小限制，超过阈值时自动截断（可配置，默认500KB）
+  - 自动解析相对路径、支持 .ts/.tsx/.js/.jsx/.json 等多种扩展名
+
+- 统一导出入口 (src/input/index.ts)
+  - 整合三个 collectors，提供清晰的 API 文档
+
+- 测试覆盖 (__tests__/input/)
+  - git-diff-collector.test.ts: 6 个测试
+  - file-collector.test.ts: 6 个测试
+  - context-enricher.test.ts: 6 个测试
+  - integration.test.ts: 6 个测试
+  - 总计 24 个测试，全部通过
+
+- 项目基础设施
+  - 安装 glob 包用于 glob 模式支持
+  - 配置 Jest + ts-jest 用于 TypeScript 单元测试
+  - 新增 test、test:watch、test:coverage npm scripts
+  - 创建 jest.config.js 配置文件
+
+### 验证清单
+- ✅ GitDiffCollector 能正确解析包含新增、删除、修改的 unified diff，输出每个文件的变更行号范围和内容
+- ✅ FileCollector 支持传入单个文件路径、目录路径、glob 模式（如 src/**/*.ts），并正确读取文件内容
+- ✅ ContextEnricher 能通过 import/require 语句自动发现并读取最多 2 层深度的依赖文件作为上下文
+- ✅ 当输入文件总大小超过阈值（可配置，默认 500KB）时，自动按优先级截断并在 ReviewRequest 中标记
+
+### 下一步
+Feature #3: 维度审查 Agent 系统
+- 实现 AgentRunner: 封装 Claude Code Agent tool 调用
+- 实现 5 个维度 Agent: Logic、Security、Performance、Maintainability、EdgeCases
+- 编写各维度的 system prompt，包含 10+ 项检查清单
+- 实现并行执行调度
+
+---
