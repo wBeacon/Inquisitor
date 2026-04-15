@@ -5,3 +5,6 @@ dist/
 .cf/
 CLAUDE.md.cf-backup
 control.json
+
+# Test temporary files
+__tests__/input/temp-*/
