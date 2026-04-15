@@ -24,15 +24,14 @@ SWE-bench 冠军方案（如 OpenHands/Devin）： 它们通常包含一个 Veri
 - [x] Feature #2: 输入采集层 -- 实现 Git diff 解析器和文件/目录扫描器，能将待审查代码转化为结构化的 ReviewRequest，包含变更代码及其周围上下文
 - [x] Feature #3: 维度审查 Agent 系统 -- 实现多个独立的维度审查 Agent，每个 Agent 专注一个审查维度，拥有独立的 system prompt 和审查策略，通过 Claude Code 的 Agent tool 以隔离上下文运行
 - [x] Feature #4: 对抗式 Adversary Agent -- 实现独立的对抗审查器，接收所有维度 Agent 的审查结果，以全新视角重新审视代码，专门寻找被遗漏的问题并挑战已有结论中的误报
+- [x] Feature #5: 编排器 (Orchestrator) -- 实现整个 review 流程的编排逻辑: 采集输入 -> 并行维度审查 -> 对抗审查 -> 去重校准 -> 生成报告
 
-**Current feature:** #5: 编排器 (Orchestrator) -- 实现整个 review 流程的编排逻辑: 采集输入 -> 并行维度审查 -> 对抗审查 -> 去重校准 -> 生成报告
+**Current feature:** #6: 输出层与报告生成 -- 实现 JSON 和 Markdown 双格式报告生成器，JSON 供 CodeAgent 程序化消费，Markdown 供人类阅读
 **Steps:**
-- 实现 Orchestrator 主流程: 串联所有阶段
-- 实现并行调度: 同时启动多个维度 Agent，等待全部完成
-- 实现结果汇总: 收集所有 Agent 输出，去重合并
-- 实现对抗阶段: 将汇总结果交给 AdversaryAgent
-- 实现最终校准: 根据 Adversary 反馈调整最终报告
-- 实现超时与容错: 单个 Agent 超时不阻塞整体流程，标记该维度为 'incomplete'
+- 实现 JsonReporter: 输出符合类 SARIF 格式的 JSON 报告
+- 实现 MarkdownReporter: 生成可读性好的 Markdown 报告，按 severity 分组，包含代码片段引用
+- 实现 SummaryGenerator: 生成简洁的统计摘要（N 个 critical、N 个 high...）
+- 实现报告写入: 支持输出到 stdout、文件、或直接返回给调用方
 
 **Rules:**
 - Do NOT remove or weaken existing tests
