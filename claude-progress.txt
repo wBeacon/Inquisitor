@@ -1281,3 +1281,50 @@ Summary: Tests: 197/197 passed. Criteria: 13/13 met. Verdict: pass
 
 ---
 
+## Session 14 — 2026-04-15: Feature #6 重写（满足 12 个验收条件）
+
+### 问题
+之前 Session 3 实现的 Feature #6 只有一个 ReportGenerator 类，不满足评估器要求的独立模块架构（JsonReporter、MarkdownReporter、SummaryGenerator 分离）。
+
+### 完成内容
+
+**类型变更 - ReviewIssue (src/types/review.ts):**
+- 新增 adversaryVerdict 可选字段: 'confirmed' | 'disputed' | 'false_positive'
+
+**新增 summary-generator.ts:**
+- SummaryGenerator 类: 静态方法 generate(), countBySeverity(), countByDimension()
+- generateSummary() 便捷函数
+- 独立可复用，不依赖任何报告格式
+
+**新增 json-reporter.ts:**
+- JsonReporter 类: 类 SARIF 格式 JSON 报告
+- 包含 $schema, version, tool 元数据
+- 输出所有 ReviewIssue 字段（含 adversaryVerdict）
+- summary 统计信息（bySeverity, byDimension, totalIssues）
+- 支持从 ReviewIssue[] 直接生成（generateFromIssues）
+
+**新增 markdown-reporter.ts:**
+- MarkdownReporter 类: 按 severity 降序分组（critical -> high -> medium -> low）
+- 概要统计表（severity 分布 + dimension 分布，合法 Markdown table）
+- 每个 issue 含 file:line-endLine 引用和代码片段
+- adversaryVerdict 中英文标签显示
+- 0 个问题时输出「没有发现问题」提示
+
+**更新 output/index.ts:**
+- 统一导出 JsonReporter, MarkdownReporter, SummaryGenerator
+- 保留旧 ReportGenerator 向后兼容
+
+**测试 (29 个新测试):**
+- JsonReporter: 可解析性、字段完整性、summary、adversaryVerdict、空报告
+- MarkdownReporter: 统计表格、severity 分组排序、行号代码片段、空报告、adversaryVerdict
+- SummaryGenerator: totalIssues、bySeverity、byDimension、空数组、便捷函数
+- 模块独立性: 各自独立 import 调用
+- 统一导出: 从 output/index.ts 导出验证
+
+### 验证结果
+- Tests: 226/226 passed
+- tsc --noEmit: PASS
+- 全部 12 个验收条件覆盖
+
+---
+
