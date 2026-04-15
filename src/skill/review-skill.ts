@@ -6,6 +6,8 @@ import {
 import { GitDiffCollector, FileCollector } from '../input';
 import { ReviewOrchestrator, OrchestratorConfig } from '../orchestrator';
 import { ReportGenerator, GeneratorConfig } from '../output';
+import { loadConfig, InquisitorConfig } from './config-loader';
+import { ProgressReporter } from './progress-reporter';
 
 /**
  * Skill 命令参数
@@ -62,20 +64,32 @@ export class ReviewSkill {
    * 执行代码审查 Skill
    */
   async execute(params: SkillParams): Promise<SkillResult> {
+    const progress = new ProgressReporter();
+
     try {
       // 验证参数
       this.validateParams(params);
 
-      // 构建审查请求
-      const request = await this.buildReviewRequest(params);
+      // 加载项目配置
+      const projectRoot = params.projectRoot || './';
+      const config = loadConfig(projectRoot);
 
-      // 执行审查
+      // 采集阶段
+      progress.onPhase('collecting');
+      const request = await this.buildReviewRequest(params, config);
+
+      // 审查阶段
+      progress.onPhase('reviewing');
       console.log(`开始代码审查，模式: ${params.mode}`);
       const report = await this.orchestrator.run(request);
 
-      // 生成报告
+      // 报告阶段
+      progress.onPhase('reporting');
       const formatList = this.parseFormats(params.formats || 'markdown');
       const reportFiles = await this.generateReports(report, params.outputDir, formatList);
+
+      // 完成
+      progress.onPhase('done');
 
       return {
         success: true,
@@ -134,9 +148,12 @@ export class ReviewSkill {
 
   /**
    * 构建审查请求
+   * @param params Skill 参数
+   * @param config 项目配置（包含 ignore 模式等）
    */
-  private async buildReviewRequest(params: SkillParams): Promise<ReviewRequest> {
+  private async buildReviewRequest(params: SkillParams, config: InquisitorConfig): Promise<ReviewRequest> {
     const projectRoot = params.projectRoot || './';
+    const ignorePatterns = config.ignore;
 
     let files;
     let diff;
@@ -146,11 +163,11 @@ export class ReviewSkill {
       files = await this.gitDiffCollector.collect();
       diff = undefined; // Will be populated from file diffs
     } else if (params.mode === 'file') {
-      // 单个文件
-      files = await this.fileCollector.collect(params.path!);
+      // 单个文件，传入 ignore 模式
+      files = await this.fileCollector.collect(params.path!, ignorePatterns);
     } else {
-      // 目录
-      files = await this.fileCollector.collect(params.path!);
+      // 目录，传入 ignore 模式
+      files = await this.fileCollector.collect(params.path!, ignorePatterns);
     }
 
     // 解析审查维度
@@ -211,44 +228,60 @@ export class ReviewSkill {
 ## 用法
 
 \`\`\`
-/review [模式] [选项]
+/review [选项] [路径]
 \`\`\`
 
 ## 模式
 
-- \`diff\` - 审查 git diff（默认）
-- \`file\` - 审查单个文件
-- \`directory\` - 审查整个目录
+- \`/review\` - 审查 git diff（默认）
+- \`/review path/to/file.ts\` - 审查单个文件（裸路径自动识别为文件模式）
+- \`/review --full src/\` - 审查整个目录
 
 ## 选项
 
-- \`--path\` - 文件或目录路径（file/directory 模式必需）
-- \`--dimensions\` - 审查维度（逗号分隔），可选值：logic, security, performance, maintainability, edge_cases
-- \`--formats\` - 输出格式（逗号分隔），可选值：json, markdown（默认: markdown）
-- \`--enable-adversary\` - 启用对抗审查（默认: true）
-- \`--project-root\` - 项目根目录（默认: ./）
-- \`--output-dir\` - 输出目录
+- \`--fast\` - 跳过对抗审查阶段，加速审查
+- \`--full <path>\` - 全目录扫描模式 (directory mode)
+- \`--formats <formats>\` - 输出格式（逗号分隔），可选值：json, markdown（默认: markdown）
+- \`--dimensions <dims>\` - 审查维度（逗号分隔），可选值：logic, security, performance, maintainability, edge_cases
+
+## 配置文件
+
+项目根目录下可放置 \`.inquisitor.json\` 配置文件：
+
+\`\`\`json
+{
+  "ignore": ["**/*.test.ts", "node_modules/**"],
+  "rules": { "maxFileSize": 100000 },
+  "severityThreshold": "medium",
+  "dimensions": ["logic", "security"]
+}
+\`\`\`
 
 ## 示例
 
 审查最近的 git 变更：
 \`\`\`
-/review diff
+/review
 \`\`\`
 
 审查单个文件：
 \`\`\`
-/review file --path src/app.ts
+/review src/app.ts
 \`\`\`
 
-审查目录，仅关注安全问题：
+快速审查（跳过对抗阶段）：
 \`\`\`
-/review directory --path src --dimensions security
+/review --fast src/app.ts
 \`\`\`
 
-审查并生成 JSON 和 Markdown 报告：
+审查目录，生成 JSON 和 Markdown 报告：
 \`\`\`
-/review diff --formats json,markdown --output-dir ./reports
+/review --full src/ --formats json,markdown
+\`\`\`
+
+仅关注安全维度审查：
+\`\`\`
+/review --dimensions security src/app.ts
 \`\`\`
     `;
   }

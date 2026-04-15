@@ -1,6 +1,7 @@
 import { readFileSync, statSync, readdirSync } from 'fs';
-import { resolve, extname } from 'path';
+import { resolve, extname, relative } from 'path';
 import { glob } from 'glob';
+import { minimatch } from 'minimatch';
 import { FileToReview } from '../types';
 
 /**
@@ -11,24 +12,34 @@ export class FileCollector {
   /**
    * 收集文件并返回 FileToReview 数组
    * @param input 文件路径、目录路径或 glob 模式
+   * @param ignorePatterns 可选的忽略模式列表（glob 格式），匹配的文件会被排除
    * @returns FileToReview 数组
    */
-  async collect(input: string): Promise<FileToReview[]> {
+  async collect(input: string, ignorePatterns?: string[]): Promise<FileToReview[]> {
     try {
+      let files: FileToReview[];
+
       // 判断输入类型
       if (input.includes('*') || input.includes('?') || input.includes('[')) {
         // 是 glob 模式
-        return this.collectFromGlob(input);
+        files = await this.collectFromGlob(input);
+      } else {
+        const stat = statSync(input);
+        if (stat.isFile()) {
+          files = this.collectFromFile(input);
+        } else if (stat.isDirectory()) {
+          files = this.collectFromDirectory(input);
+        } else {
+          throw new Error(`Path is neither file nor directory: ${input}`);
+        }
       }
 
-      const stat = statSync(input);
-      if (stat.isFile()) {
-        return this.collectFromFile(input);
-      } else if (stat.isDirectory()) {
-        return this.collectFromDirectory(input);
+      // 应用 ignore 模式过滤
+      if (ignorePatterns && ignorePatterns.length > 0) {
+        files = this.applyIgnorePatterns(files, ignorePatterns);
       }
 
-      throw new Error(`Path is neither file nor directory: ${input}`);
+      return files;
     } catch (error) {
       throw new Error(
         `Failed to collect files from ${input}: ${
@@ -36,6 +47,21 @@ export class FileCollector {
         }`
       );
     }
+  }
+
+  /**
+   * 使用 ignore 模式过滤文件列表
+   * @param files 文件列表
+   * @param ignorePatterns glob 格式的忽略模式
+   * @returns 过滤后的文件列表
+   */
+  private applyIgnorePatterns(
+    files: FileToReview[],
+    ignorePatterns: string[]
+  ): FileToReview[] {
+    return files.filter((file) => {
+      return !ignorePatterns.some((pattern) => minimatch(file.path, pattern));
+    });
   }
 
   /**

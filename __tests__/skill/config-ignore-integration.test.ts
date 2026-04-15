@@ -1,26 +1,13 @@
 /**
  * config-ignore-integration.test.ts - 配置忽略模式集成测试
  *
- * 验证 .inquisitor.json 中的 ignore 模式是否能在 FileCollector 采集阶段被正确应用。
+ * 验证 .inquisitor.json 中的 ignore 模式在 FileCollector 采集阶段被正确应用。
+ * 这是真实的集成测试，使用真正的 FileCollector.collect() 方法。
  */
-import { writeFileSync, mkdirSync, existsSync, rmdirSync, unlinkSync } from 'fs';
+import { writeFileSync, mkdirSync, existsSync, rmSync } from 'fs';
 import { resolve } from 'path';
 import { FileCollector } from '../../src/input';
 import { loadConfig } from '../../src/skill/config-loader';
-import * as minimatch from 'minimatch';
-
-/**
- * 辅助函数：使用 ignore 模式过滤文件列表
- * 模拟 FileCollector 与 config ignore 的集成
- */
-function filterByIgnorePatterns(
-  files: Array<{ path: string }>,
-  ignorePatterns: string[]
-): Array<{ path: string }> {
-  return files.filter((file) => {
-    return !ignorePatterns.some((pattern) => minimatch.minimatch(file.path, pattern));
-  });
-}
 
 describe('ignore 模式集成', () => {
   const tmpDir = resolve(__dirname, 'tmp-ignore-test');
@@ -35,21 +22,13 @@ describe('ignore 模式集成', () => {
   });
 
   afterEach(() => {
-    // 清理临时文件
-    const files = [
-      resolve(srcDir, 'app.ts'),
-      resolve(srcDir, 'app.test.ts'),
-      resolve(srcDir, 'util.ts'),
-      resolve(tmpDir, '.inquisitor.json'),
-    ];
-    for (const f of files) {
-      if (existsSync(f)) unlinkSync(f);
+    // 清理临时目录
+    if (existsSync(tmpDir)) {
+      rmSync(tmpDir, { recursive: true, force: true });
     }
-    if (existsSync(srcDir)) rmdirSync(srcDir);
-    if (existsSync(tmpDir)) rmdirSync(tmpDir);
   });
 
-  test('ignore 模式排除匹配的测试文件', () => {
+  test('FileCollector.collect() 使用 ignore 模式排除测试文件', async () => {
     // 写入配置
     const config = {
       ignore: ['**/*.test.ts'],
@@ -61,67 +40,53 @@ describe('ignore 模式集成', () => {
     const loaded = loadConfig(tmpDir);
     expect(loaded.ignore).toEqual(['**/*.test.ts']);
 
-    // 模拟文件列表
-    const allFiles = [
-      { path: 'src/app.ts' },
-      { path: 'src/app.test.ts' },
-      { path: 'src/util.ts' },
-    ];
-
-    // 应用 ignore 模式
-    const filtered = filterByIgnorePatterns(allFiles, loaded.ignore);
+    // 使用真正的 FileCollector，传入 ignore 模式
+    const collector = new FileCollector();
+    const files = await collector.collect(srcDir, loaded.ignore);
 
     // 验证: 测试文件被排除
-    expect(filtered.length).toBe(2);
-    expect(filtered.find((f) => f.path === 'src/app.ts')).toBeDefined();
-    expect(filtered.find((f) => f.path === 'src/util.ts')).toBeDefined();
-    expect(filtered.find((f) => f.path === 'src/app.test.ts')).toBeUndefined();
+    const paths = files.map((f) => f.path);
+    expect(paths).not.toContain(expect.stringContaining('app.test.ts'));
+    expect(files.length).toBe(2);
+    expect(paths.some((p) => p.includes('app.ts') && !p.includes('test'))).toBe(true);
+    expect(paths.some((p) => p.includes('util.ts'))).toBe(true);
   });
 
-  test('ignore 模式排除 node_modules', () => {
-    const config = {
-      ignore: ['node_modules/**'],
-      rules: {},
-    };
-    writeFileSync(resolve(tmpDir, '.inquisitor.json'), JSON.stringify(config));
-    const loaded = loadConfig(tmpDir);
+  test('FileCollector.collect() 使用多个 ignore 模式同时过滤', async () => {
+    // 创建额外的 spec 文件
+    writeFileSync(resolve(srcDir, 'app.spec.ts'), 'describe("app", () => {});');
 
-    const allFiles = [
-      { path: 'src/app.ts' },
-      { path: 'node_modules/lodash/index.js' },
-    ];
-
-    const filtered = filterByIgnorePatterns(allFiles, loaded.ignore);
-    expect(filtered.length).toBe(1);
-    expect(filtered[0].path).toBe('src/app.ts');
-  });
-
-  test('多个 ignore 模式同时生效', () => {
     const config = {
       ignore: ['**/*.test.ts', '**/*.spec.ts'],
       rules: {},
     };
     writeFileSync(resolve(tmpDir, '.inquisitor.json'), JSON.stringify(config));
+
     const loaded = loadConfig(tmpDir);
+    const collector = new FileCollector();
+    const files = await collector.collect(srcDir, loaded.ignore);
 
-    const allFiles = [
-      { path: 'src/app.ts' },
-      { path: 'src/app.test.ts' },
-      { path: 'src/app.spec.ts' },
-    ];
-
-    const filtered = filterByIgnorePatterns(allFiles, loaded.ignore);
-    expect(filtered.length).toBe(1);
-    expect(filtered[0].path).toBe('src/app.ts');
+    // 只剩 app.ts 和 util.ts
+    expect(files.length).toBe(2);
+    const paths = files.map((f) => f.path);
+    expect(paths.some((p) => p.includes('test'))).toBe(false);
+    expect(paths.some((p) => p.includes('spec'))).toBe(false);
   });
 
-  test('空 ignore 模式不排除任何文件', () => {
-    const allFiles = [
-      { path: 'src/app.ts' },
-      { path: 'src/app.test.ts' },
-    ];
+  test('FileCollector.collect() 空 ignore 模式不排除任何文件', async () => {
+    const collector = new FileCollector();
+    const filesWithEmpty = await collector.collect(srcDir, []);
+    const filesWithout = await collector.collect(srcDir);
 
-    const filtered = filterByIgnorePatterns(allFiles, []);
-    expect(filtered.length).toBe(2);
+    // 两者结果相同
+    expect(filesWithEmpty.length).toBe(filesWithout.length);
+  });
+
+  test('FileCollector.collect() 不传 ignore 参数时不过滤', async () => {
+    const collector = new FileCollector();
+    const files = await collector.collect(srcDir);
+
+    // 应该包含所有 3 个文件
+    expect(files.length).toBe(3);
   });
 });

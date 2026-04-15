@@ -71,16 +71,16 @@ export function parseReviewArgs(argsString: string): ReviewCommandArgs {
       isFullMode = true;
       i++;
     } else if (token === '--formats') {
-      // 输出格式参数
+      // 输出格式参数，检查下一个 token 不是另一个 flag
       i++;
-      if (i < tokens.length) {
+      if (i < tokens.length && !tokens[i].startsWith('--')) {
         result.formats = tokens[i];
         i++;
       }
     } else if (token === '--dimensions') {
-      // 审查维度参数
+      // 审查维度参数，检查下一个 token 不是另一个 flag
       i++;
-      if (i < tokens.length) {
+      if (i < tokens.length && !tokens[i].startsWith('--')) {
         result.dimensions = tokens[i];
         i++;
       }
