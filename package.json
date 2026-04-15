@@ -8,7 +8,10 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "lint": "eslint src/",
-    "clean": "rm -rf dist/"
+    "clean": "rm -rf dist/",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "code-review",
@@ -18,7 +21,13 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "typescript": "^5.4.0",
-    "@types/node": "^20.11.0"
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.11.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "glob": "^13.0.6"
   }
 }
