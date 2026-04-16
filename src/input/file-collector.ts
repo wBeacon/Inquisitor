@@ -3,6 +3,7 @@ import { resolve, extname, relative } from 'path';
 import { glob } from 'glob';
 import { minimatch } from 'minimatch';
 import { FileToReview } from '../types';
+import { inferLanguage } from '../utils/language-util';
 
 /**
  * FileCollector - 收集要审查的文件
@@ -75,7 +76,7 @@ export class FileCollector {
       {
         path: filePath,
         content,
-        language: this.inferLanguage(filePath),
+        language: inferLanguage(filePath),
       },
     ];
   }
@@ -95,7 +96,7 @@ export class FileCollector {
         files.push({
           path: relativePath || filePath,
           content,
-          language: this.inferLanguage(filePath),
+          language: inferLanguage(filePath),
         });
       } catch (error) {
         // 忽略无法读取的文件（权限问题、二进制文件等）
@@ -122,7 +123,7 @@ export class FileCollector {
         files.push({
           path: filePath,
           content,
-          language: this.inferLanguage(filePath),
+          language: inferLanguage(filePath),
         });
       } catch (error) {
         // 忽略无法读取的文件
@@ -247,44 +248,4 @@ export class FileCollector {
     return !excludePatterns.some((pattern) => pattern.test(fileName));
   }
 
-  /**
-   * 根据文件扩展名推断语言
-   */
-  private inferLanguage(filePath: string): string {
-    const ext = extname(filePath).toLowerCase();
-    
-    const languageMap: Record<string, string> = {
-      '.ts': 'typescript',
-      '.tsx': 'typescript',
-      '.js': 'javascript',
-      '.jsx': 'javascript',
-      '.mjs': 'javascript',
-      '.cjs': 'javascript',
-      '.py': 'python',
-      '.java': 'java',
-      '.go': 'go',
-      '.rb': 'ruby',
-      '.rs': 'rust',
-      '.cpp': 'cpp',
-      '.c': 'c',
-      '.h': 'c',
-      '.cs': 'csharp',
-      '.php': 'php',
-      '.swift': 'swift',
-      '.kt': 'kotlin',
-      '.sql': 'sql',
-      '.json': 'json',
-      '.yaml': 'yaml',
-      '.yml': 'yaml',
-      '.xml': 'xml',
-      '.html': 'html',
-      '.css': 'css',
-      '.scss': 'scss',
-      '.less': 'less',
-      '.sh': 'bash',
-      '.md': 'markdown',
-    };
-
-    return languageMap[ext] || ext.slice(1) || 'text';
-  }
 }

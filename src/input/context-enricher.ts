@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { FileToReview } from '../types';
+import { inferLanguage } from '../utils/language-util';
 
 /**
  * ContextEnricher - 扩展文件上下文
@@ -187,7 +188,7 @@ export class ContextEnricher {
       return {
         path: relativePath,
         content,
-        language: this.inferLanguage(filePath),
+        language: inferLanguage(filePath),
       };
     } catch (error) {
       // 忽略读取错误
@@ -195,40 +196,4 @@ export class ContextEnricher {
     }
   }
 
-  /**
-   * 根据文件扩展名推断语言
-   */
-  private inferLanguage(filePath: string): string {
-    const ext = filePath.split('.').pop()?.toLowerCase() || '';
-    
-    const languageMap: Record<string, string> = {
-      ts: 'typescript',
-      tsx: 'typescript',
-      js: 'javascript',
-      jsx: 'javascript',
-      py: 'python',
-      java: 'java',
-      go: 'go',
-      rb: 'ruby',
-      rs: 'rust',
-      cpp: 'cpp',
-      c: 'c',
-      h: 'c',
-      cs: 'csharp',
-      php: 'php',
-      swift: 'swift',
-      kt: 'kotlin',
-      sql: 'sql',
-      json: 'json',
-      yaml: 'yaml',
-      yml: 'yaml',
-      xml: 'xml',
-      html: 'html',
-      css: 'css',
-      scss: 'scss',
-      less: 'less',
-    };
-
-    return languageMap[ext] || ext || 'text';
-  }
 }

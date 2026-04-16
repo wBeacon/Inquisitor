@@ -67,10 +67,10 @@ export abstract class AgentRunner {
 
   // 每次 review 调用的 token 使用量，由 callClaudeAPI 更新
   // 初始化为空使用量，实际值由 API 响应填充
-  private _lastTokenUsage: { input: number; output: number; total: number } =
+  protected _lastTokenUsage: { input: number; output: number; total: number } =
     this.createEmptyTokenUsage();
 
-  private createEmptyTokenUsage(): { input: number; output: number; total: number } {
+  protected createEmptyTokenUsage(): { input: number; output: number; total: number } {
     const empty = 0;
     return { input: empty, output: empty, total: empty };
   }

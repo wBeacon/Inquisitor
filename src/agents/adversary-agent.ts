@@ -1,6 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { AgentConfig, ReviewIssue, AdversaryResult } from '../types';
+import { AgentConfig, ReviewIssue, AdversaryResult, ReviewDimension } from '../types';
 import { ADVERSARY_AGENT_PROMPT } from './prompts/adversary-prompt';
+import { AgentRunner } from './agent-runner';
 
 /**
  * AdversaryResult 中的问题判断
@@ -30,15 +30,13 @@ export interface AdversaryReviewResponse {
 
 /**
  * AdversaryAgent - 对抗式审查 Agent
+ * 继承 AgentRunner 复用 API 调用和 JSON 解析基础设施。
  * 以全新的、完全独立的视角审视代码，寻找被遗漏的问题并质疑已有结论。
  * 通过 Anthropic SDK 调用 Claude API，在完全隔离的上下文中运行。
  */
-export class AdversaryAgent {
-  private config: AgentConfig;
-  private timeout: number;
-
+export class AdversaryAgent extends AgentRunner {
   constructor(config?: Partial<AgentConfig>) {
-    const defaultConfig: AgentConfig = {
+    const fullConfig: AgentConfig = {
       id: config?.id || 'adversary-agent',
       name: config?.name || 'Adversary Code Review Agent',
       description:
@@ -50,8 +48,21 @@ export class AdversaryAgent {
       temperature: config?.temperature || 0.7, // 略高的温度以鼓励创意思考
     };
 
-    this.config = defaultConfig;
-    this.timeout = config?.maxTokens ? config.maxTokens * 100 : 300000;
+    const timeout = config?.maxTokens ? config.maxTokens * 100 : 300000;
+    super(fullConfig, timeout);
+  }
+
+  /**
+   * 实现 AgentRunner 的抽象方法
+   * AdversaryAgent 主要通过 challenge() 方法使用，performReview 提供基本兼容
+   */
+  protected async performReview(
+    files: string[],
+    context: string
+  ): Promise<ReviewIssue[]> {
+    // AdversaryAgent 主要通过 challenge() 使用，此方法提供基本兼容
+    const result = await this.performAdversaryReview(files, context, []);
+    return result.newIssues;
   }
 
   /**
@@ -120,45 +131,9 @@ export class AdversaryAgent {
     }
   }
 
-  // 追踪 token 使用量
-  private _lastTokenUsage = { input: 0, output: 0, total: 0 };
-
-  /**
-   * 调用 Claude API 执行对抗审查
-   * 每次调用创建独立的 Anthropic 客户端实例，确保完全隔离
-   */
-  private async callClaudeAPI(userMessage: string): Promise<string> {
-    // 每次调用创建新的客户端实例，确保无共享状态
-    const client = new Anthropic();
-
-    const response = await client.messages.create({
-      model: this.config.model || 'claude-sonnet-4-20250514',
-      max_tokens: this.config.maxTokens || 4000,
-      temperature: this.config.temperature || 0.7,
-      system: this.config.systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: userMessage,
-        },
-      ],
-    });
-
-    // 追踪 token 使用量
-    this._lastTokenUsage = {
-      input: response.usage.input_tokens,
-      output: response.usage.output_tokens,
-      total: response.usage.input_tokens + response.usage.output_tokens,
-    };
-
-    // 提取文本内容
-    const textContent = response.content.find((block) => block.type === 'text');
-    return textContent ? textContent.text : '';
-  }
-
   /**
    * 执行对抗审查的实际逻辑
-   * 构建结构化用户消息，调用 Claude API，解析响应
+   * 构建结构化用户消息，调用 Claude API（复用基类 callClaudeAPI），解析响应
    */
   async performAdversaryReview(
     files: string[],
@@ -168,7 +143,7 @@ export class AdversaryAgent {
     // 构建用户消息
     const userMessage = this.buildUserMessage(files, context, existingIssues);
 
-    // 调用 Claude API
+    // 调用 Claude API（复用基类方法）
     const rawResponse = await this.callClaudeAPI(userMessage);
 
     // 解析响应
@@ -225,7 +200,7 @@ export class AdversaryAgent {
 
   /**
    * 解析 Claude API 的对抗审查响应
-   * 使用健壮的 JSON 解析，处理 LLM 常见输出问题
+   * 复用基类的 JSON 解析基础设施（code fence 移除、trailing comma 处理等）
    */
   private parseAdversaryResponse(
     rawText: string,
@@ -233,7 +208,7 @@ export class AdversaryAgent {
   ): AdversaryReviewResponse {
     let text = rawText.trim();
 
-    // 移除 markdown code fence
+    // 移除 markdown code fence（与基类 parseJsonResponse 相同的预处理）
     const codeFenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
     if (codeFenceMatch) {
       text = codeFenceMatch[1].trim();
@@ -380,26 +355,5 @@ export class AdversaryAgent {
 
         return result;
       });
-  }
-
-  /**
-   * 获取 Agent 配置
-   */
-  getConfig(): AgentConfig {
-    return { ...this.config };
-  }
-
-  /**
-   * 获取 Agent ID
-   */
-  getId(): string {
-    return this.config.id;
-  }
-
-  /**
-   * 获取 Agent 名称
-   */
-  getName(): string {
-    return this.config.name;
   }
 }
