@@ -1514,3 +1514,29 @@ Summary: Tests: 267/267 passed. Criteria: 9/10 met. Blocking issues: 1. Verdict:
 
 ---
 
+## Session 12 — 2026-04-16: Feature #9 修复阻塞问题（测试 Timer 泄漏）
+
+### 问题
+评估发现 1 个阻塞问题：
+- 测试文件中 createMockTask 的 setTimeout 在超时场景下残留，Jest --detectOpenHandles 检测到 3 个 open handles
+- 源代码 parallel-scheduler.ts 的 Timer 清理逻辑已正确（finally 块中 clearTimeout），但测试 mock 本身的 timer 未处理
+
+### 修复内容
+- __tests__/orchestrator/parallel-scheduler.test.ts: createMockTask 中对 setTimeout 返回值调用 .unref()
+- 同样修复并发测试（concurrency / maxParallel）中的 setTimeout，也添加 .unref()
+- unref() 确保当任务被 Promise.race 超时取消后，残留的 mock timer 不会阻止 Node.js 进程退出
+
+### 验证结果
+- npx jest __tests__/orchestrator/parallel-scheduler.test.ts --detectOpenHandles: 0 个 open handles
+- Tests: 267/267 passed (17 test suites)
+- tsc --noEmit: PASS
+
+---
+
+## Session 12 — 2026-04-16 11:45:14
+Feature: #9 修复 Timer 泄漏与加固 execSync 安全性 -- ParallelScheduler.createTimeoutPromise 创建的 setTimeout 在任务正常完成后不会被清除，导致 Timer 泄漏（Jest 报告 detectOpenHandles）。GitDiffCollector.getDiffOutput 使用 execSync 拼接 ref 参数，存在命令注入风险（如 ref='HEAD; rm -rf /'）。需要：(1) 使用 AbortController 或手动 clearTimeout 清理已完成任务的定时器；(2) 对 git ref 参数进行白名单校验
+Result: done
+Summary: Tests: 267/267 passed. Criteria: 10/10 met. Verdict: pass
+
+---
+
