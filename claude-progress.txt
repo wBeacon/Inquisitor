@@ -1578,3 +1578,21 @@ Summary: Tests: 0/0 passed. Criteria: 11/12 met. Blocking issues: 1. Verdict: fi
 
 ---
 
+## Session 14 — 2026-04-16
+Feature: #10 修复阻塞问题 — parseAdversaryResponse 复制 parseJsonResponse 的 JSON 预处理逻辑
+Result: fix applied
+Summary:
+- 在 AgentRunner 中抽取 protected preprocessJsonText(rawText) 方法（code fence 移除、trailing comma 处理）
+- 在 AgentRunner 中抽取 protected tryParseJson(text) 方法（JSON.parse 容错，含单引号/无引号属性名处理）
+- parseJsonResponse 重构为调用 preprocessJsonText + tryParseJson
+- AdversaryAgent.parseAdversaryResponse 改为调用 this.preprocessJsonText + this.tryParseJson，消除 copy-paste
+- Tests: 304/304 passed, tsc --noEmit: PASS
+
+---
+## Session 14 — 2026-04-16 13:03:24
+Feature: #10 消除 inferLanguage 三处重复实现与 AdversaryAgent/AgentRunner 代码重复 -- inferLanguage 在 GitDiffCollector、FileCollector、ContextEnricher 三处各自维护一份语言映射表，维护成本高且容易不一致。AdversaryAgent 独立重写了 callClaudeAPI 和 JSON 解析逻辑而非继承 AgentRunner。需要：(1) 抽取共享 language-util 模块；(2) 让 AdversaryAgent 继承 AgentRunner 复用 API 调用和解析能力
+Result: done
+Summary: Tests: 304/304 passed. Criteria: 12/12 met. Verdict: pass
+
+---
+
