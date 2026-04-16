@@ -14,7 +14,9 @@ function createMockTask(
     id,
     execute: () =>
       new Promise((resolve, reject) => {
-        setTimeout(() => {
+        // 使用 unref() 避免 Timer 泄漏：当任务被超时取消后，
+        // 残留的 setTimeout 不会阻止 Node.js 进程退出
+        const timer = setTimeout(() => {
           if (shouldFail) {
             reject(new Error(`Agent ${id} execution failed`));
           } else {
@@ -27,6 +29,7 @@ function createMockTask(
             });
           }
         }, delayMs);
+        timer.unref();
       }),
   };
 }
@@ -80,7 +83,7 @@ describe('ParallelScheduler', () => {
           new Promise<AgentResult>((resolve) => {
             concurrentCount++;
             maxConcurrent = Math.max(maxConcurrent, concurrentCount);
-            setTimeout(() => {
+            const timer = setTimeout(() => {
               concurrentCount--;
               resolve({
                 agentId: `agent-${i}`,
@@ -90,6 +93,7 @@ describe('ParallelScheduler', () => {
                 success: true,
               });
             }, 20);
+            timer.unref();
           }),
       }));
 
