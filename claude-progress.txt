@@ -1540,3 +1540,35 @@ Summary: Tests: 267/267 passed. Criteria: 10/10 met. Verdict: pass
 
 ---
 
+## Session 13 — 2026-04-16: Feature #10 消除 inferLanguage 三处重复与 AdversaryAgent 代码重复
+
+### 完成内容
+
+**新增 src/utils/language-util.ts:**
+- 统一的 inferLanguage 函数，包含三处实现的完整超集
+- 支持完整文件路径、带点号扩展名(.ts)、无点号扩展名(ts)三种输入格式
+- 包含 mjs/cjs/sh/md/pyi/cc/hpp/bash/txt/ini/conf/config 等所有已知扩展名
+
+**替换三处 inferLanguage 实现:**
+- GitDiffCollector: 删除 private inferLanguage，改为 import 统一模块
+- FileCollector: 删除 private inferLanguage，改为 import 统一模块
+- ContextEnricher: 删除 private inferLanguage，改为 import 统一模块
+- 净减约 150 行重复代码
+
+**AdversaryAgent 继承 AgentRunner:**
+- AdversaryAgent 改为 extends AgentRunner，复用 callClaudeAPI 和 JSON 解析
+- 删除独立的 Anthropic SDK import 和 client.messages.create 调用
+- AgentRunner._lastTokenUsage/createEmptyTokenUsage 改为 protected 以支持子类访问
+- 保留 challenge() 公开接口和 AdversaryResult 返回类型不变
+- 实现 performReview 抽象方法提供基本兼容
+
+**测试:**
+- 新增 __tests__/utils/language-util.test.ts: 37 个测试
+- 覆盖所有已知扩展名、带点号/无点号输入、空字符串、无扩展名、未知扩展名、大小写
+
+### 验证结果
+- Tests: 304/304 passed (18 test suites)
+- tsc --noEmit: PASS
+- 所有 12 个验收条件覆盖
+
+---
