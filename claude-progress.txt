@@ -1434,3 +1434,43 @@ Summary: Tests: 249/249 passed. Criteria: 13/13 met. Verdict: pass
 
 ---
 
+
+## Session 10 — 2026-04-16: Feature #8 severityThreshold 过滤与清理死代码
+
+### 完成内容
+
+**删除死代码:**
+- 删除 src/orchestrator/review-orchestrator.ts (353 行)
+- 删除 __tests__/orchestrator/review-orchestrator.test.ts (579 行)
+- 验证 src/ 和 __tests__/ 中无任何对 review-orchestrator 的引用
+
+**severityThreshold 过滤实现:**
+- OrchestratorConfig 新增 severityThreshold 字段
+- ResolvedOrchestratorConfig 新增已校验的 severityThreshold?: Severity 字段
+- resolveConfig() 对非法 severityThreshold 值返回 undefined（等同于不设阈值）
+- VALID_SEVERITY_THRESHOLDS 常量导出，仅接受 'critical'|'high'|'medium'|'low'
+- Orchestrator.filterBySeverityThreshold() 方法：按 severity 优先级过滤
+- 报告生成前执行过滤，确保 summary.bySeverity/totalIssues 与 issues 一致
+
+**config 透传逻辑清理:**
+- ReviewSkill.execute() 合并 config 和 params：params 优先级高于 config
+- config.dimensions 在命令行未指定 --dimensions 时生效
+- config.formats 在命令行未指定 --formats 时生效
+- config.severityThreshold 在命令行未指定时生效
+- SkillParams 新增 severityThreshold 字段
+
+**测试:**
+- 新增 __tests__/skill/config-integration.test.ts (19 个测试)
+- 覆盖: threshold=high/medium/low/critical/undefined 过滤
+- 覆盖: 非法 severityThreshold 处理
+- 覆盖: summary 与过滤后 issues 一致性
+- 覆盖: config.dimensions/formats 透传
+- 覆盖: params 优先级高于 config
+
+### 验证结果
+- Tests: 247/247 passed (17 test suites)
+- tsc --noEmit: PASS
+- review-orchestrator.ts: DELETED, NO_REFS
+- 所有 11 个验收条件覆盖
+
+---
