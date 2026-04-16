@@ -1474,3 +1474,10 @@ Summary: Tests: 249/249 passed. Criteria: 13/13 met. Verdict: pass
 - 所有 11 个验收条件覆盖
 
 ---
+## Session 10 — 2026-04-16 11:22:51
+Feature: #8 实现 severityThreshold 过滤与清理死代码 -- config-loader 加载的 severityThreshold 从未在审查流程中生效，review-orchestrator.ts 是被 orchestrator.ts 替代的遗留文件（0% 覆盖率）。需要：(1) 在 Orchestrator 或 ReportGenerator 中根据 severityThreshold 过滤低于阈值的问题；(2) 删除 review-orchestrator.ts 死代码；(3) 清理 config.dimensions/formats 字段在 ReviewSkill 中的透传逻辑
+Result: done
+Summary: Tests: 247/247 passed. Criteria: 11/11 met. Verdict: pass
+
+---
+

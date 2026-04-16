@@ -26,14 +26,9 @@ SWE-bench 冠军方案（如 OpenHands/Devin）： 它们通常包含一个 Veri
 - [x] Feature #4: 对抗式 Adversary Agent -- 实现独立的对抗审查器，接收所有维度 Agent 的审查结果，以全新视角重新审视代码，专门寻找被遗漏的问题并挑战已有结论中的误报
 - [x] Feature #5: 编排器 (Orchestrator) -- 实现整个 review 流程的编排逻辑: 采集输入 -> 并行维度审查 -> 对抗审查 -> 去重校准 -> 生成报告
 - [x] Feature #6: 输出层与报告生成 -- 实现 JSON 和 Markdown 双格式报告生成器，JSON 供 CodeAgent 程序化消费，Markdown 供人类阅读
+- [x] Feature #7: Claude Code Skill 集成 -- 将整个 review 引擎封装为 Claude Code Skill，支持 /review 命令调用，处理参数解析、配置加载、进度反馈
 
-**Current feature:** #7: Claude Code Skill 集成 -- 将整个 review 引擎封装为 Claude Code Skill，支持 /review 命令调用，处理参数解析、配置加载、进度反馈
-**Steps:**
-- 创建 skill 定义文件（skill.md 或对应格式），定义 /review 命令
-- 实现参数解析: /review（默认审查 git diff）、/review path/to/file、/review --full src/（全目录扫描）、/review --fast（跳过对抗阶段）
-- 实现配置文件支持: .inquisitor.json 或 .inquisitorrc，允许项目级自定义审查规则、忽略模式、severity 阈值
-- 实现进度反馈: 审查过程中向用户输出阶段进度（正在分析输入... 正在并行审查... 正在对抗校验...）
-- 实现入口文件: 将 skill 命令映射到 Orchestrator 调用
+**Current feature:** #8: 实现 severityThreshold 过滤与清理死代码 -- config-loader 加载的 severityThreshold 从未在审查流程中生效，review-orchestrator.ts 是被 orchestrator.ts 替代的遗留文件（0% 覆盖率）。需要：(1) 在 Orchestrator 或 ReportGenerator 中根据 severityThreshold 过滤低于阈值的问题；(2) 删除 review-orchestrator.ts 死代码；(3) 清理 config.dimensions/formats 字段在 ReviewSkill 中的透传逻辑
 
 **Rules:**
 - Do NOT remove or weaken existing tests
