@@ -1,10 +1,13 @@
 node_modules/
 dist/
 
-# claude-forever temp files
+# 测试覆盖率报告（构建产物，不应提交）
+coverage/
+
+# claude-forever 临时文件
 .cf/
 CLAUDE.md.cf-backup
 control.json
 
-# Test temporary files
+# 测试临时文件
 __tests__/input/temp-*/
