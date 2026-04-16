@@ -28,8 +28,9 @@ SWE-bench 冠军方案（如 OpenHands/Devin）： 它们通常包含一个 Veri
 - [x] Feature #6: 输出层与报告生成 -- 实现 JSON 和 Markdown 双格式报告生成器，JSON 供 CodeAgent 程序化消费，Markdown 供人类阅读
 - [x] Feature #7: Claude Code Skill 集成 -- 将整个 review 引擎封装为 Claude Code Skill，支持 /review 命令调用，处理参数解析、配置加载、进度反馈
 - [x] Feature #8: 实现 severityThreshold 过滤与清理死代码 -- config-loader 加载的 severityThreshold 从未在审查流程中生效，review-orchestrator.ts 是被 orchestrator.ts 替代的遗留文件（0% 覆盖率）。需要：(1) 在 Orchestrator 或 ReportGenerator 中根据 severityThreshold 过滤低于阈值的问题；(2) 删除 review-orchestrator.ts 死代码；(3) 清理 config.dimensions/formats 字段在 ReviewSkill 中的透传逻辑
+- [x] Feature #9: 修复 Timer 泄漏与加固 execSync 安全性 -- ParallelScheduler.createTimeoutPromise 创建的 setTimeout 在任务正常完成后不会被清除，导致 Timer 泄漏（Jest 报告 detectOpenHandles）。GitDiffCollector.getDiffOutput 使用 execSync 拼接 ref 参数，存在命令注入风险（如 ref='HEAD; rm -rf /'）。需要：(1) 使用 AbortController 或手动 clearTimeout 清理已完成任务的定时器；(2) 对 git ref 参数进行白名单校验
 
-**Current feature:** #9: 修复 Timer 泄漏与加固 execSync 安全性 -- ParallelScheduler.createTimeoutPromise 创建的 setTimeout 在任务正常完成后不会被清除，导致 Timer 泄漏（Jest 报告 detectOpenHandles）。GitDiffCollector.getDiffOutput 使用 execSync 拼接 ref 参数，存在命令注入风险（如 ref='HEAD; rm -rf /'）。需要：(1) 使用 AbortController 或手动 clearTimeout 清理已完成任务的定时器；(2) 对 git ref 参数进行白名单校验
+**Current feature:** #10: 消除 inferLanguage 三处重复实现与 AdversaryAgent/AgentRunner 代码重复 -- inferLanguage 在 GitDiffCollector、FileCollector、ContextEnricher 三处各自维护一份语言映射表，维护成本高且容易不一致。AdversaryAgent 独立重写了 callClaudeAPI 和 JSON 解析逻辑而非继承 AgentRunner。需要：(1) 抽取共享 language-util 模块；(2) 让 AdversaryAgent 继承 AgentRunner 复用 API 调用和解析能力
 
 **Rules:**
 - Do NOT remove or weaken existing tests

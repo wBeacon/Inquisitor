@@ -1571,4 +1571,10 @@ Summary: Tests: 267/267 passed. Criteria: 10/10 met. Verdict: pass
 - tsc --noEmit: PASS
 - 所有 12 个验收条件覆盖
 
+---## Session 13 — 2026-04-16 12:09:53
+Feature: #10 消除 inferLanguage 三处重复实现与 AdversaryAgent/AgentRunner 代码重复 -- inferLanguage 在 GitDiffCollector、FileCollector、ContextEnricher 三处各自维护一份语言映射表，维护成本高且容易不一致。AdversaryAgent 独立重写了 callClaudeAPI 和 JSON 解析逻辑而非继承 AgentRunner。需要：(1) 抽取共享 language-util 模块；(2) 让 AdversaryAgent 继承 AgentRunner 复用 API 调用和解析能力
+Result: fix
+Summary: Tests: 0/0 passed. Criteria: 11/12 met. Blocking issues: 1. Verdict: fix
+
 ---
+
