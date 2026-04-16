@@ -1481,3 +1481,29 @@ Summary: Tests: 247/247 passed. Criteria: 11/11 met. Verdict: pass
 
 ---
 
+## Session 11 — 2026-04-16: Feature #9 修复 Timer 泄漏与加固 execSync 安全性
+
+### 完成内容
+
+**ParallelScheduler Timer 泄漏修复 (src/orchestrator/parallel-scheduler.ts):**
+- 移除独立的 createTimeoutPromise 方法，将超时逻辑内联到 executeWithTimeout
+- 使用局部变量 timerId 保存 setTimeout 返回值
+- 在 finally 块中调用 clearTimeout(timerId)，确保无论任务成功、超时或抛异常都清理定时器
+- 消除 Jest --detectOpenHandles 报告的 Timer 泄漏
+
+**GitDiffCollector ref 参数安全加固 (src/input/git-diff-collector.ts):**
+- 新增 VALID_REF_PATTERN 白名单正则: /^[a-zA-Z0-9_./~^@:,\-]+$/
+- 新增公共方法 validateRef(): 校验 ref 非空且仅包含合法字符
+- 在 collect() 方法中 execSync 调用前执行 validateRef() 校验
+- 覆盖合法模式: 分支名、tag、SHA、HEAD~N、HEAD^N、origin/main、范围表达式
+
+**测试新增:**
+- parallel-scheduler.test.ts: 3 个 timer cleanup 测试（正常完成清理、超时清理、异常清理）
+- git-diff-collector.test.ts: 17 个 ref 校验测试（8 个恶意输入拒绝 + 9 个合法输入放行）
+
+### 验证结果
+- Tests: 267/267 passed (17 test suites)
+- tsc --noEmit: PASS
+- 全部 10 个验收条件覆盖
+
+---
