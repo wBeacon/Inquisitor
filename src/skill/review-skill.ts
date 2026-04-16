@@ -27,6 +27,8 @@ export interface SkillParams {
   projectRoot?: string;
   /** 输出目录 */
   outputDir?: string;
+  /** 最低严重程度阈值，低于此阈值的问题不报告 */
+  severityThreshold?: string;
 }
 
 /**
@@ -74,9 +76,27 @@ export class ReviewSkill {
       const projectRoot = params.projectRoot || './';
       const config = loadConfig(projectRoot);
 
+      // 合并 config 和 params：params 优先级高于 config
+      const mergedDimensions = params.dimensions || (config.dimensions ? config.dimensions.join(',') : undefined);
+      const mergedFormats = params.formats || (config.formats ? config.formats.join(',') : undefined);
+      const mergedSeverityThreshold = params.severityThreshold || config.severityThreshold;
+
+      // 如果有 severityThreshold，传入编排器配置
+      if (mergedSeverityThreshold) {
+        const currentConfig = this.orchestrator.getConfig();
+        // 重新构建编排器以应用新的 severityThreshold
+        this.orchestrator = new ReviewOrchestrator({
+          ...currentConfig,
+          severityThreshold: mergedSeverityThreshold,
+        });
+      }
+
       // 采集阶段
       progress.onPhase('collecting');
-      const request = await this.buildReviewRequest(params, config);
+      const request = await this.buildReviewRequest(
+        { ...params, dimensions: mergedDimensions },
+        config
+      );
 
       // 审查阶段
       progress.onPhase('reviewing');
@@ -85,7 +105,7 @@ export class ReviewSkill {
 
       // 报告阶段
       progress.onPhase('reporting');
-      const formatList = this.parseFormats(params.formats || 'markdown');
+      const formatList = this.parseFormats(mergedFormats || 'markdown');
       const reportFiles = await this.generateReports(report, params.outputDir, formatList);
 
       // 完成

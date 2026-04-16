@@ -21,6 +21,7 @@ export {
   OrchestratorConfig,
   ResolvedOrchestratorConfig,
   resolveConfig,
+  VALID_SEVERITY_THRESHOLDS,
   DEFAULT_MODEL,
   DEFAULT_MAX_PARALLEL,
   DEFAULT_AGENT_TIMEOUT,

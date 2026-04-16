@@ -19,7 +19,7 @@ import {
   AdversaryAgent,
   IssueCalibrator,
 } from '../agents';
-import { OrchestratorConfig, ResolvedOrchestratorConfig, resolveConfig } from './config';
+import { OrchestratorConfig, ResolvedOrchestratorConfig, resolveConfig, VALID_SEVERITY_THRESHOLDS } from './config';
 import { ParallelScheduler, ScheduledTask } from './parallel-scheduler';
 import { ResultMerger } from './result-merger';
 
@@ -153,10 +153,12 @@ export class ReviewOrchestrator {
       throw new Error(`Stage [calibration] failed: ${error instanceof Error ? error.message : String(error)}`);
     }
 
-    // 阶段 5: 生成报告
+    // 阶段 5: 生成报告（先过滤再生成，确保 summary 与 issues 一致）
     try {
       const stageStart = Date.now();
-      const report = this.generateReport(finalIssues, context);
+      // 根据 severityThreshold 过滤低于阈值的问题
+      const filteredIssues = this.filterBySeverityThreshold(finalIssues);
+      const report = this.generateReport(filteredIssues, context);
       context.stageTimings.reportGeneration = Date.now() - stageStart;
       // 更新报告中的 reportGeneration 时间
       (report.metadata as ExtendedReviewMetadata).stages.reportGeneration = context.stageTimings.reportGeneration;
@@ -273,6 +275,36 @@ export class ReviewOrchestrator {
 
     // 无对抗结果时仅去重排序
     return this.merger.sort(this.merger.dedup(allIssues));
+  }
+
+  /**
+   * 根据 severityThreshold 过滤低于阈值的问题
+   * severity 优先级: critical > high > medium > low
+   * 例如 threshold='high' 时，仅保留 critical 和 high
+   */
+  filterBySeverityThreshold(issues: ReviewIssue[]): ReviewIssue[] {
+    const threshold = this.config.severityThreshold;
+    if (!threshold) {
+      return issues;
+    }
+
+    // severity 优先级映射（数值越大优先级越高）
+    const severityOrder: Record<string, number> = {
+      critical: 4,
+      high: 3,
+      medium: 2,
+      low: 1,
+    };
+
+    const thresholdLevel = severityOrder[threshold];
+    if (thresholdLevel === undefined) {
+      return issues;
+    }
+
+    return issues.filter((issue) => {
+      const issueLevel = severityOrder[issue.severity] ?? 0;
+      return issueLevel >= thresholdLevel;
+    });
   }
 
   /**

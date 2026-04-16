@@ -1,4 +1,7 @@
-import { ReviewDimension } from '../types';
+import { ReviewDimension, Severity } from '../types';
+
+/** 合法的 severityThreshold 值 */
+export const VALID_SEVERITY_THRESHOLDS: Severity[] = ['critical', 'high', 'medium', 'low'];
 
 /**
  * 编排器配置接口 - 定义 Orchestrator 的运行参数
@@ -18,6 +21,8 @@ export interface OrchestratorConfig {
   enableCache?: boolean;
   /** 跳过的审查维度列表 */
   skipDimensions?: ReviewDimension[];
+  /** 最低严重程度阈值，低于此阈值的问题将被过滤。仅接受 'critical'|'high'|'medium'|'low'，非法值等同于不设阈值 */
+  severityThreshold?: string;
 }
 
 /**
@@ -31,6 +36,8 @@ export interface ResolvedOrchestratorConfig {
   enableAdversary: boolean;
   enableCache: boolean;
   skipDimensions: ReviewDimension[];
+  /** 已校验的严重程度阈值，undefined 表示不过滤 */
+  severityThreshold?: Severity;
 }
 
 // 默认值常量 - 集中管理
@@ -51,10 +58,17 @@ export const DEFAULT_SKIP_DIMENSIONS: ReviewDimension[] = [];
 
 /**
  * 将用户配置与默认值合并，返回完整配置
+ * severityThreshold 经过校验，非法值会被忽略（等同于不设阈值）
  * @param config 用户传入的可选配置
  * @returns 解析后的完整配置
  */
 export function resolveConfig(config?: OrchestratorConfig): ResolvedOrchestratorConfig {
+  // 校验 severityThreshold：仅接受合法值
+  let resolvedThreshold: Severity | undefined = undefined;
+  if (config?.severityThreshold && VALID_SEVERITY_THRESHOLDS.includes(config.severityThreshold as Severity)) {
+    resolvedThreshold = config.severityThreshold as Severity;
+  }
+
   return {
     model: config?.model ?? DEFAULT_MODEL,
     maxParallel: config?.maxParallel ?? DEFAULT_MAX_PARALLEL,
@@ -63,5 +77,6 @@ export function resolveConfig(config?: OrchestratorConfig): ResolvedOrchestrator
     enableAdversary: config?.enableAdversary ?? DEFAULT_ENABLE_ADVERSARY,
     enableCache: config?.enableCache ?? DEFAULT_ENABLE_CACHE,
     skipDimensions: config?.skipDimensions ?? [...DEFAULT_SKIP_DIMENSIONS],
+    severityThreshold: resolvedThreshold,
   };
 }
