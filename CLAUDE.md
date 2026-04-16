@@ -27,8 +27,9 @@ SWE-bench 冠军方案（如 OpenHands/Devin）： 它们通常包含一个 Veri
 - [x] Feature #5: 编排器 (Orchestrator) -- 实现整个 review 流程的编排逻辑: 采集输入 -> 并行维度审查 -> 对抗审查 -> 去重校准 -> 生成报告
 - [x] Feature #6: 输出层与报告生成 -- 实现 JSON 和 Markdown 双格式报告生成器，JSON 供 CodeAgent 程序化消费，Markdown 供人类阅读
 - [x] Feature #7: Claude Code Skill 集成 -- 将整个 review 引擎封装为 Claude Code Skill，支持 /review 命令调用，处理参数解析、配置加载、进度反馈
+- [x] Feature #8: 实现 severityThreshold 过滤与清理死代码 -- config-loader 加载的 severityThreshold 从未在审查流程中生效，review-orchestrator.ts 是被 orchestrator.ts 替代的遗留文件（0% 覆盖率）。需要：(1) 在 Orchestrator 或 ReportGenerator 中根据 severityThreshold 过滤低于阈值的问题；(2) 删除 review-orchestrator.ts 死代码；(3) 清理 config.dimensions/formats 字段在 ReviewSkill 中的透传逻辑
 
-**Current feature:** #8: 实现 severityThreshold 过滤与清理死代码 -- config-loader 加载的 severityThreshold 从未在审查流程中生效，review-orchestrator.ts 是被 orchestrator.ts 替代的遗留文件（0% 覆盖率）。需要：(1) 在 Orchestrator 或 ReportGenerator 中根据 severityThreshold 过滤低于阈值的问题；(2) 删除 review-orchestrator.ts 死代码；(3) 清理 config.dimensions/formats 字段在 ReviewSkill 中的透传逻辑
+**Current feature:** #9: 修复 Timer 泄漏与加固 execSync 安全性 -- ParallelScheduler.createTimeoutPromise 创建的 setTimeout 在任务正常完成后不会被清除，导致 Timer 泄漏（Jest 报告 detectOpenHandles）。GitDiffCollector.getDiffOutput 使用 execSync 拼接 ref 参数，存在命令注入风险（如 ref='HEAD; rm -rf /'）。需要：(1) 使用 AbortController 或手动 clearTimeout 清理已完成任务的定时器；(2) 对 git ref 参数进行白名单校验
 
 **Rules:**
 - Do NOT remove or weaken existing tests

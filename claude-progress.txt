@@ -1507,3 +1507,10 @@ Summary: Tests: 247/247 passed. Criteria: 11/11 met. Verdict: pass
 - 全部 10 个验收条件覆盖
 
 ---
+## Session 11 — 2026-04-16 11:37:10
+Feature: #9 修复 Timer 泄漏与加固 execSync 安全性 -- ParallelScheduler.createTimeoutPromise 创建的 setTimeout 在任务正常完成后不会被清除，导致 Timer 泄漏（Jest 报告 detectOpenHandles）。GitDiffCollector.getDiffOutput 使用 execSync 拼接 ref 参数，存在命令注入风险（如 ref='HEAD; rm -rf /'）。需要：(1) 使用 AbortController 或手动 clearTimeout 清理已完成任务的定时器；(2) 对 git ref 参数进行白名单校验
+Result: fix
+Summary: Tests: 267/267 passed. Criteria: 9/10 met. Blocking issues: 1. Verdict: fix
+
+---
+
