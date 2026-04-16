@@ -200,19 +200,13 @@ export class AdversaryAgent extends AgentRunner {
 
   /**
    * 解析 Claude API 的对抗审查响应
-   * 复用基类的 JSON 解析基础设施（code fence 移除、trailing comma 处理等）
+   * 复用基类的 preprocessJsonText 和 tryParseJson 进行 JSON 预处理和容错解析
    */
   private parseAdversaryResponse(
     rawText: string,
     existingIssues: ReviewIssue[]
   ): AdversaryReviewResponse {
-    let text = rawText.trim();
-
-    // 移除 markdown code fence（与基类 parseJsonResponse 相同的预处理）
-    const codeFenceMatch = text.match(/```(?:json)?\s*\n?([\s\S]*?)\n?\s*```/);
-    if (codeFenceMatch) {
-      text = codeFenceMatch[1].trim();
-    }
+    let text = this.preprocessJsonText(rawText);
 
     // 尝试提取 JSON 对象
     const objectMatch = text.match(/\{[\s\S]*\}/);
@@ -220,23 +214,9 @@ export class AdversaryAgent extends AgentRunner {
       text = objectMatch[0];
     }
 
-    // 移除 trailing commas
-    text = text.replace(/,\s*([\]}])/g, '$1');
-
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      // 尝试单引号替换
-      try {
-        const doubleQuoted = text
-          .replace(/'/g, '"')
-          .replace(/(\{|,)\s*(\w+)\s*:/g, '$1"$2":');
-        parsed = JSON.parse(doubleQuoted);
-      } catch {
-        // 解析完全失败，抛出错误触发 graceful degradation
-        throw new Error(`Failed to parse adversary response: ${rawText.substring(0, 200)}`);
-      }
+    const parsed = this.tryParseJson(text) as Record<string, unknown> | null;
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error(`Failed to parse adversary response: ${rawText.substring(0, 200)}`);
     }
 
     // 提取并验证 newIssues

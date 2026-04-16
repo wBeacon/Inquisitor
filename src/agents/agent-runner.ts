@@ -145,13 +145,13 @@ export abstract class AgentRunner {
   }
 
   /**
-   * 健壮的 JSON 解析：处理 LLM 常见输出问题
+   * JSON 文本预处理：处理 LLM 常见输出问题
    * 1. markdown code fence 包裹
-   * 2. 多余文本包裹
-   * 3. trailing comma
-   * 4. 单引号替代双引号
+   * 2. trailing comma
+   * 3. 单引号替代双引号
+   * 子类可复用此方法进行 JSON 解析前的文本清理
    */
-  protected parseJsonResponse(rawText: string): ReviewIssue[] {
+  protected preprocessJsonText(rawText: string): string {
     let text = rawText.trim();
 
     // 移除 markdown code fence
@@ -160,38 +160,50 @@ export abstract class AgentRunner {
       text = codeFenceMatch[1].trim();
     }
 
+    // 移除 trailing commas (对象和数组末尾的逗号)
+    text = text.replace(/,\s*([\]}])/g, '$1');
+
+    return text;
+  }
+
+  /**
+   * 尝试解析 JSON 文本，包含单引号/无引号属性名的容错处理
+   * 返回解析结果，解析失败返回 null
+   */
+  protected tryParseJson(text: string): unknown | null {
+    try {
+      return JSON.parse(text);
+    } catch {
+      // 尝试将单引号替换为双引号，修复属性名没有引号的情况
+      try {
+        const doubleQuoted = text
+          .replace(/'/g, '"')
+          .replace(/(\{|,)\s*(\w+)\s*:/g, '$1"$2":');
+        return JSON.parse(doubleQuoted);
+      } catch {
+        return null;
+      }
+    }
+  }
+
+  /**
+   * 健壮的 JSON 解析：处理 LLM 常见输出问题
+   * 使用 preprocessJsonText 和 tryParseJson 进行预处理和容错解析
+   */
+  protected parseJsonResponse(rawText: string): ReviewIssue[] {
+    let text = this.preprocessJsonText(rawText);
+
     // 尝试提取 JSON 数组（处理前后有多余文本的情况）
     const arrayMatch = text.match(/\[[\s\S]*\]/);
     if (arrayMatch) {
       text = arrayMatch[0];
     }
 
-    // 移除 trailing commas (对象和数组末尾的逗号)
-    text = text.replace(/,\s*([\]}])/g, '$1');
-
-    // 尝试直接解析
-    try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed)) {
-        return this.validateAndFixIssues(parsed);
-      }
-      return [];
-    } catch {
-      // 尝试将单引号替换为双引号
-      try {
-        const doubleQuoted = text
-          .replace(/'/g, '"')
-          // 修复属性名没有引号的情况
-          .replace(/(\{|,)\s*(\w+)\s*:/g, '$1"$2":');
-        const parsed = JSON.parse(doubleQuoted);
-        if (Array.isArray(parsed)) {
-          return this.validateAndFixIssues(parsed);
-        }
-      } catch {
-        // 解析失败
-      }
-      return [];
+    const parsed = this.tryParseJson(text);
+    if (Array.isArray(parsed)) {
+      return this.validateAndFixIssues(parsed);
     }
+    return [];
   }
 
   /**
