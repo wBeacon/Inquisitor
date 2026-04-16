@@ -1,4 +1,11 @@
 import { GitDiffCollector } from '../../src/input/git-diff-collector';
+import { execSync } from 'child_process';
+
+jest.mock('child_process', () => ({
+  execSync: jest.fn(),
+}));
+
+const mockedExecSync = execSync as jest.MockedFunction<typeof execSync>;
 
 describe('GitDiffCollector', () => {
   let collector: GitDiffCollector;
@@ -220,12 +227,113 @@ index aaa..bbb 100644
   });
 
   describe('collect', () => {
+    beforeEach(() => {
+      mockedExecSync.mockReset();
+    });
+
     it('should support custom context lines', () => {
       const collector30 = new GitDiffCollector(30);
       const collector100 = new GitDiffCollector(100);
 
       expect(collector30).toBeDefined();
       expect(collector100).toBeDefined();
+    });
+  });
+
+  describe('ref validation - malicious input rejection', () => {
+    beforeEach(() => {
+      mockedExecSync.mockReset();
+    });
+
+    it('should reject ref with semicolon (command injection)', async () => {
+      await expect(collector.collect('HEAD; rm -rf /')).rejects.toThrow(/[Ii]nvalid.*[Ii]llegal/);
+      expect(mockedExecSync).not.toHaveBeenCalled();
+    });
+
+    it('should reject ref with pipe (command injection)', async () => {
+      await expect(collector.collect('main | cat /etc/passwd')).rejects.toThrow(/[Ii]nvalid.*[Ii]llegal/);
+      expect(mockedExecSync).not.toHaveBeenCalled();
+    });
+
+    it('should reject ref with $() subshell (command injection)', async () => {
+      await expect(collector.collect('$(whoami)')).rejects.toThrow(/[Ii]nvalid.*[Ii]llegal/);
+      expect(mockedExecSync).not.toHaveBeenCalled();
+    });
+
+    it('should reject ref with backticks (command injection)', async () => {
+      await expect(collector.collect('HEAD`id`')).rejects.toThrow(/[Ii]nvalid.*[Ii]llegal/);
+      expect(mockedExecSync).not.toHaveBeenCalled();
+    });
+
+    it('should reject ref with spaces', async () => {
+      await expect(collector.collect('HEAD --flag')).rejects.toThrow(/[Ii]nvalid.*[Ii]llegal/);
+      expect(mockedExecSync).not.toHaveBeenCalled();
+    });
+
+    it('should reject ref with newline', async () => {
+      await expect(collector.collect('HEAD\nrm -rf /')).rejects.toThrow(/[Ii]nvalid[\s\S]*[Ii]llegal/);
+      expect(mockedExecSync).not.toHaveBeenCalled();
+    });
+
+    it('should reject empty ref', async () => {
+      await expect(collector.collect('')).rejects.toThrow(/[Ii]nvalid/);
+      expect(mockedExecSync).not.toHaveBeenCalled();
+    });
+
+    it('should reject ref with ampersand', async () => {
+      await expect(collector.collect('HEAD && echo pwned')).rejects.toThrow(/[Ii]nvalid.*[Ii]llegal/);
+      expect(mockedExecSync).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('ref validation - valid ref passthrough', () => {
+    beforeEach(() => {
+      mockedExecSync.mockReturnValue('');
+    });
+
+    it('should accept HEAD', async () => {
+      await collector.collect('HEAD');
+      expect(mockedExecSync).toHaveBeenCalled();
+    });
+
+    it('should accept branch name "main"', async () => {
+      await collector.collect('main');
+      expect(mockedExecSync).toHaveBeenCalled();
+    });
+
+    it('should accept remote branch "origin/main"', async () => {
+      await collector.collect('origin/main');
+      expect(mockedExecSync).toHaveBeenCalled();
+    });
+
+    it('should accept HEAD~3 ancestor ref', async () => {
+      await collector.collect('HEAD~3');
+      expect(mockedExecSync).toHaveBeenCalled();
+    });
+
+    it('should accept tag "v1.0.0"', async () => {
+      await collector.collect('v1.0.0');
+      expect(mockedExecSync).toHaveBeenCalled();
+    });
+
+    it('should accept SHA hash "abc1234def"', async () => {
+      await collector.collect('abc1234def');
+      expect(mockedExecSync).toHaveBeenCalled();
+    });
+
+    it('should accept range expression "main..HEAD"', async () => {
+      await collector.collect('main..HEAD');
+      expect(mockedExecSync).toHaveBeenCalled();
+    });
+
+    it('should accept feature branch with slash "feature/my-branch"', async () => {
+      await collector.collect('feature/my-branch');
+      expect(mockedExecSync).toHaveBeenCalled();
+    });
+
+    it('should accept HEAD^2 caret ref', async () => {
+      await collector.collect('HEAD^2');
+      expect(mockedExecSync).toHaveBeenCalled();
     });
   });
 });

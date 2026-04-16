@@ -65,14 +65,27 @@ export class ParallelScheduler {
   /**
    * 执行单个任务并应用超时控制
    * 超时时返回 success:false 的 AgentResult 而非抛出异常
+   * 任务完成（无论成功、失败或超时）后立即清除定时器，避免 Timer 泄漏
    */
   private async executeWithTimeout(task: ScheduledTask<AgentResult>): Promise<AgentResult> {
     const startTime = Date.now();
+    let timerId: ReturnType<typeof setTimeout> | undefined;
 
     try {
+      // 创建超时 Promise，同时保存 timerId 以便后续清理
+      const timeoutPromise = new Promise<AgentResult>((resolve) => {
+        timerId = setTimeout(() => {
+          resolve(this.createFailureResult(
+            task.id,
+            this.taskTimeout,
+            `Agent ${task.id} timeout after ${this.taskTimeout}ms`
+          ));
+        }, this.taskTimeout);
+      });
+
       const result = await Promise.race([
         task.execute(),
-        this.createTimeoutPromise(task.id),
+        timeoutPromise,
       ]);
       return result;
     } catch (error) {
@@ -83,23 +96,12 @@ export class ParallelScheduler {
         durationMs,
         error instanceof Error ? error.message : String(error)
       );
+    } finally {
+      // 无论任务成功、失败还是超时，都清除定时器，防止 Timer 泄漏
+      if (timerId !== undefined) {
+        clearTimeout(timerId);
+      }
     }
-  }
-
-  /**
-   * 创建超时 Promise
-   * 超时时返回一个标记为失败的 AgentResult 而非 reject
-   */
-  private createTimeoutPromise(taskId: string): Promise<AgentResult> {
-    return new Promise<AgentResult>((resolve) => {
-      setTimeout(() => {
-        resolve(this.createFailureResult(
-          taskId,
-          this.taskTimeout,
-          `Agent ${taskId} timeout after ${this.taskTimeout}ms`
-        ));
-      }, this.taskTimeout);
-    });
   }
 
   /**

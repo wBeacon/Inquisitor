@@ -134,6 +134,56 @@ describe('ParallelScheduler', () => {
     });
   });
 
+  describe('timer cleanup', () => {
+    it('should clearTimeout after task completes normally to avoid Timer leaks', async () => {
+      const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+      const scheduler = new ParallelScheduler({ maxParallel: 5, taskTimeout: 5000 });
+      const tasks = [
+        createMockTask('agent-1', 10),
+        createMockTask('agent-2', 10),
+      ];
+
+      const results = await scheduler.executeAll(tasks);
+
+      // 每个任务完成后都应该调用 clearTimeout 清理超时定时器
+      expect(clearTimeoutSpy).toHaveBeenCalledTimes(2);
+      expect(results.every((r) => r.success)).toBe(true);
+      expect(results[0].agentId).toBe('agent-1');
+      expect(results[1].agentId).toBe('agent-2');
+
+      clearTimeoutSpy.mockRestore();
+    });
+
+    it('should clearTimeout after task times out (no residual Timer handles)', async () => {
+      const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+      // 超时设置为 50ms，任务需要 5000ms -> 触发超时
+      const scheduler = new ParallelScheduler({ maxParallel: 5, taskTimeout: 50 });
+      const tasks = [createMockTask('slow-agent', 5000)];
+
+      const results = await scheduler.executeAll(tasks);
+
+      // 超时后也应该清理定时器
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+      expect(results[0].success).toBe(false);
+      expect(results[0].error).toContain('timeout');
+
+      clearTimeoutSpy.mockRestore();
+    });
+
+    it('should clearTimeout even when task throws an error', async () => {
+      const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+      const scheduler = new ParallelScheduler({ maxParallel: 5, taskTimeout: 5000 });
+      const tasks = [createMockTask('error-agent', 10, [], true)];
+
+      const results = await scheduler.executeAll(tasks);
+
+      expect(clearTimeoutSpy).toHaveBeenCalled();
+      expect(results[0].success).toBe(false);
+
+      clearTimeoutSpy.mockRestore();
+    });
+  });
+
   describe('error handling', () => {
     it('should catch task execution errors and return failure result', async () => {
       const scheduler = new ParallelScheduler({ maxParallel: 5, taskTimeout: 5000 });

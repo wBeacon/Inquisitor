@@ -24,6 +24,15 @@ export interface DiffLine {
 }
 
 /**
+ * 合法 git ref 的白名单正则表达式
+ * 覆盖: 分支名(main, feature/xxx)、tag(v1.0.0)、SHA(abc1234)、
+ * HEAD 引用(HEAD, HEAD~3, HEAD^2)、远程分支(origin/main)、
+ * 范围表达式(main..HEAD, main...HEAD)
+ * 不允许: shell 元字符(; | & ` $ ( ) { } < > ! \n 等)
+ */
+const VALID_REF_PATTERN = /^[a-zA-Z0-9_./~^@:,\-]+$/;
+
+/**
  * GitDiffCollector - 解析 git diff 输出
  * 提取变更文件、变更行及周围上下文
  */
@@ -35,15 +44,37 @@ export class GitDiffCollector {
   }
 
   /**
+   * 校验 git ref 参数是否合法
+   * 使用白名单正则匹配，拒绝包含 shell 元字符的输入以防止命令注入
+   * @param ref 待校验的 git ref 字符串
+   * @throws Error 当 ref 包含非法字符时抛出错误
+   */
+  validateRef(ref: string): void {
+    if (!ref || ref.trim() === '') {
+      throw new Error('Invalid git ref: ref cannot be empty');
+    }
+
+    if (!VALID_REF_PATTERN.test(ref)) {
+      throw new Error(
+        `Invalid git ref: "${ref}" contains illegal characters. ` +
+        `Only alphanumeric, '.', '/', '~', '^', '@', ':', ',', '-', '_' are allowed.`
+      );
+    }
+  }
+
+  /**
    * 获取 git diff 内容并解析为 FileToReview[]
    * @param ref 对比的 git ref，例如 "HEAD"、"main"、"origin/main"
    * @returns FileToReview 数组，包含文件路径、diff 内容、变更行范围等
    */
   async collect(ref: string = 'HEAD'): Promise<FileToReview[]> {
+    // 在执行任何 shell 命令前校验 ref 参数
+    this.validateRef(ref);
+
     try {
       // 获取 unified diff
       const diffOutput = this.getDiffOutput(ref);
-      
+
       if (!diffOutput.trim()) {
         return [];
       }
@@ -64,6 +95,7 @@ export class GitDiffCollector {
 
   /**
    * 获取原始 git diff 输出
+   * 在调用前必须先通过 validateRef 校验 ref 参数
    */
   private getDiffOutput(ref: string): string {
     try {
