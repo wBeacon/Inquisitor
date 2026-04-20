@@ -1,13 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { ReviewReport, ReviewIssue, ReviewDimension, Severity } from '../types';
+import { DashboardReporter } from './dashboard-reporter';
 
 /**
  * 报告生成器配置
  */
 export interface GeneratorConfig {
-  /** 输出格式（'json', 'markdown', 'both'） */
-  formats?: Array<'json' | 'markdown'>;
+  /** 输出格式（'json', 'markdown', 'html'） */
+  formats?: Array<'json' | 'markdown' | 'html'>;
   /** Markdown 主题（'dark' | 'light'） */
   theme?: 'dark' | 'light';
   /** 自定义模板 */
@@ -39,6 +40,7 @@ const DIMENSION_LABELS: Record<ReviewDimension, string> = {
   [ReviewDimension.Performance]: '性能',
   [ReviewDimension.Maintainability]: '可维护性',
   [ReviewDimension.EdgeCases]: '边界情况',
+  [ReviewDimension.AdversaryFound]: '对抗审查发现',
 };
 
 /**
@@ -76,6 +78,13 @@ export class ReportGenerator {
     // 标题
     lines.push(`# ${this.config.templates!.markdownTitle || '代码审查报告'}\n`);
 
+    // 不完整警告（仅在有 agent 失败时渲染）
+    // 放在最顶部、标题之下，保证调用方第一眼就能看到结论不可信
+    const warningSection = this.generateIncompleteWarningSection(report);
+    if (warningSection) {
+      lines.push(warningSection);
+    }
+
     // 执行摘要
     lines.push(this.generateExecutiveSummary(report));
 
@@ -95,11 +104,42 @@ export class ReportGenerator {
   }
 
   /**
+   * 渲染"审查未完整"警告（仅当 metadata.incompleteAgents 非空）
+   * 将失败的 agentId、error 消息、耗时列出，防止调用方把
+   * "0 问题" 误读为 "代码无问题"
+   */
+  private generateIncompleteWarningSection(report: ReviewReport): string | null {
+    const failures = report.metadata.incompleteAgents;
+    if (!failures || failures.length === 0) {
+      return null;
+    }
+
+    const totalAgents = report.metadata.agents.length;
+    const failedCount = failures.length;
+    const lines: string[] = [];
+    lines.push('> ⚠️ **审查未完整执行**');
+    lines.push('>');
+    lines.push(
+      `> ${failedCount} 个 Agent 失败或超时（参与总数 ${totalAgents}），本报告结论**不完整**，不应被解读为代码无问题。`
+    );
+    lines.push('>');
+    lines.push('> 失败详情：');
+    for (const f of failures) {
+      const seconds = (f.durationMs / 1000).toFixed(2);
+      lines.push(`> - \`${f.agentId}\`: ${f.error}（耗时 ${seconds}s）`);
+    }
+    lines.push('');
+
+    return lines.join('\n');
+  }
+
+  /**
    * 执行摘要部分
    */
   private generateExecutiveSummary(report: ReviewReport): string {
     const { totalIssues } = report.summary;
     const { critical, high, medium, low } = report.summary.bySeverity;
+    const hasFailures = (report.metadata.incompleteAgents?.length ?? 0) > 0;
 
     const lines: string[] = [];
     lines.push('## 执行摘要\n');
@@ -109,8 +149,11 @@ export class ReportGenerator {
     lines.push(`- **${SEVERITY_EMOJI.medium} 中**: ${medium} 项`);
     lines.push(`- **${SEVERITY_EMOJI.low} 低**: ${low} 项`);
 
-    if (totalIssues === 0) {
+    if (totalIssues === 0 && !hasFailures) {
       lines.push('\n✅ 没有发现问题，代码质量良好！\n');
+    } else if (totalIssues === 0 && hasFailures) {
+      // 不能说"代码质量良好"——审查根本没跑完
+      lines.push('\n⛔ 审查未完整，0 问题不代表代码无缺陷，请先处理上方警告中的 Agent 失败原因后重跑。\n');
     } else {
       const criticalInfo =
         critical > 0 ? `发现 ${critical} 个严重问题需要立即处理。` : '';
@@ -274,6 +317,19 @@ export class ReportGenerator {
       }
     }
 
+    // 元数据区列出每个失败 agent 的详情（与顶部警告互补：顶部给结论，这里给调试信息）
+    const failures = report.metadata.incompleteAgents;
+    if (failures && failures.length > 0) {
+      lines.push('');
+      lines.push('### Agent 失败详情');
+      lines.push('');
+      for (const f of failures) {
+        const seconds = (f.durationMs / 1000).toFixed(2);
+        lines.push(`- \`${f.agentId}\` - 耗时 ${seconds}s`);
+        lines.push(`  - 错误: ${f.error}`);
+      }
+    }
+
     lines.push('');
 
     return lines.join('\n');
@@ -303,6 +359,14 @@ export class ReportGenerator {
       const mdPath = path.join(outputDir, `${prefix}-${timestamp}.md`);
       const mdContent = this.toMarkdown(report);
       fs.writeFileSync(mdPath, mdContent, 'utf-8');
+    }
+
+    // 写入 HTML 格式（自包含仪表板）
+    if (formats.includes('html')) {
+      const htmlPath = path.join(outputDir, `${prefix}-${timestamp}.html`);
+      const dashboardReporter = new DashboardReporter();
+      const htmlContent = dashboardReporter.render(report);
+      fs.writeFileSync(htmlPath, htmlContent, 'utf-8');
     }
   }
 

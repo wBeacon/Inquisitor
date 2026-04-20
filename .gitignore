@@ -11,3 +11,24 @@ control.json
 
 # 测试临时文件
 __tests__/input/temp-*/
+
+# MCP Server 持久化配置文件（用户本地配置，不应提交）
+.inquisitor-mcp.json
+
+# Prompt Archive 快照目录（运行时产生的本地数据）
+.inquisitor/
+
+# 版本历史文件（本地状态）
+.inquisitor-version-history.json
+
+# 项目画像（本地产物）
+.project-profile/
+
+# Cursor IDE 本地配置
+.cursor/
+
+# Claude Code 本地权限配置
+.claude/
+
+# claude-forever 本地进度日志
+claude-progress.txt

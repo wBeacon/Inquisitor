@@ -28,6 +28,7 @@ const DIMENSION_LABELS: Record<string, string> = {
   [ReviewDimension.Performance]: '性能',
   [ReviewDimension.Maintainability]: '可维护性',
   [ReviewDimension.EdgeCases]: '边界情况',
+  [ReviewDimension.AdversaryFound]: '对抗审查发现',
 };
 
 /**

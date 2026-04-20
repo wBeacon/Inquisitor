@@ -79,6 +79,7 @@ function createMockReport(): ReviewReport {
         [ReviewDimension.Performance]: 1,
         [ReviewDimension.Maintainability]: 1,
         [ReviewDimension.EdgeCases]: 1,
+        [ReviewDimension.AdversaryFound]: 0,
       },
     },
     metadata: {
@@ -104,6 +105,7 @@ function createEmptyReport(): ReviewReport {
         [ReviewDimension.Performance]: 0,
         [ReviewDimension.Maintainability]: 0,
         [ReviewDimension.EdgeCases]: 0,
+        [ReviewDimension.AdversaryFound]: 0,
       },
     },
     metadata: {

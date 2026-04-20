@@ -4,9 +4,12 @@
   "description": "高强度代码审查工具 - 以对抗式 Agent 模式深度审查代码质量",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "inquisitor-mcp": "dist/mcp/bin.js"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/mcp/bin.js && cp -r src/output/templates dist/output/templates",
     "lint": "eslint src/",
     "clean": "rm -rf dist/",
     "test": "jest",
@@ -23,13 +26,17 @@
   "devDependencies": {
     "@types/jest": "^29.5.11",
     "@types/node": "^20.11.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "eslint": "^8.57.1",
     "jest": "^29.7.0",
     "ts-jest": "^29.1.1",
     "typescript": "^5.4.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.89.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "glob": "^13.0.6",
+    "js-tiktoken": "^1.0.21",
     "minimatch": "^10.2.5"
   }
 }

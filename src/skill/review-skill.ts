@@ -3,6 +3,7 @@ import {
   ReviewRequest,
   ReviewReport,
 } from '../types';
+import { ProviderType } from '../providers';
 import { GitDiffCollector, FileCollector } from '../input';
 import { ReviewOrchestrator, OrchestratorConfig } from '../orchestrator';
 import { ReportGenerator, GeneratorConfig } from '../output';
@@ -81,13 +82,21 @@ export class ReviewSkill {
       const mergedFormats = params.formats || (config.formats ? config.formats.join(',') : undefined);
       const mergedSeverityThreshold = params.severityThreshold || config.severityThreshold;
 
-      // 如果有 severityThreshold，传入编排器配置
-      if (mergedSeverityThreshold) {
+      // 如果有 severityThreshold 或 provider 配置，重建编排器
+      const mergedProvider = config.provider?.type
+        ? {
+            type: config.provider.type as ProviderType,
+            model: config.provider.model,
+            baseUrl: config.provider.baseUrl,
+          }
+        : undefined;
+
+      if (mergedSeverityThreshold || mergedProvider) {
         const currentConfig = this.orchestrator.getConfig();
-        // 重新构建编排器以应用新的 severityThreshold
         this.orchestrator = new ReviewOrchestrator({
           ...currentConfig,
-          severityThreshold: mergedSeverityThreshold,
+          ...(mergedSeverityThreshold ? { severityThreshold: mergedSeverityThreshold } : {}),
+          ...(mergedProvider ? { provider: mergedProvider } : {}),
         });
       }
 

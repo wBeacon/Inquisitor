@@ -50,6 +50,7 @@ export class SummaryGenerator {
       [ReviewDimension.Performance]: 0,
       [ReviewDimension.Maintainability]: 0,
       [ReviewDimension.EdgeCases]: 0,
+      [ReviewDimension.AdversaryFound]: 0,
     };
 
     for (const issue of issues) {

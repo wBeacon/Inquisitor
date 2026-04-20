@@ -1,14 +1,15 @@
 import { AgentRunner } from './agent-runner';
 import { AgentConfig, ReviewIssue, ReviewDimension } from '../types';
+import { LLMProvider } from '../providers';
 import { MAINTAINABILITY_AGENT_PROMPT } from './prompts';
 
 /**
  * MaintainabilityAgent - 专注于可维护性审查
  * 检查代码重复、过度复杂度、命名不当、缺失错误处理、违反 SOLID 等问题
- * 通过 Anthropic SDK 调用 Claude API，每次审查使用独立的 API session
+ * 通过 LLMProvider 调用 LLM API，每次审查使用独立的 API session
  */
 export class MaintainabilityAgent extends AgentRunner {
-  constructor(config?: Partial<AgentConfig>, timeout?: number) {
+  constructor(config?: Partial<AgentConfig>, timeout?: number, provider?: LLMProvider) {
     const defaultConfig: AgentConfig = {
       id: config?.id || 'maintainability-agent',
       name: config?.name || 'Code Maintainability Agent',
@@ -22,7 +23,7 @@ export class MaintainabilityAgent extends AgentRunner {
       temperature: config?.temperature || 0.5,
     };
 
-    super(defaultConfig, timeout);
+    super(defaultConfig, timeout, provider);
   }
 
   /**

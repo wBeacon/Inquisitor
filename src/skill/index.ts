@@ -10,5 +10,10 @@
 
 export { ReviewSkill, SkillParams, SkillResult } from './review-skill';
 export { parseReviewArgs, ReviewCommandArgs } from './review-command';
-export { loadConfig, InquisitorConfig } from './config-loader';
+export {
+  loadConfig,
+  InquisitorConfig,
+  ABTestConfig,
+  PromptVersioningConfigOptions,
+} from './config-loader';
 export { ProgressReporter, ReviewPhase, ProgressCallback } from './progress-reporter';

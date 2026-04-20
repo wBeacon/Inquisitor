@@ -1,0 +1,13 @@
+{
+  "_comment": "Inquisitor 自动触发配置 - Claude Code Hooks。将此文件内容合并到项目根目录的 .claude/settings.json 中，即可在每次编码工具调用后自动触发 Inquisitor 审查。",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "_comment": "在 Write/Edit 工具执行后，自动调用 inquisitor-mcp 对最近的 git diff 进行审查",
+        "matcher": "Write|Edit",
+        "command": "npx inquisitor-mcp --stdio <<< '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"review_diff\",\"arguments\":{}}}'",
+        "timeout": 300000
+      }
+    ]
+  }
+}

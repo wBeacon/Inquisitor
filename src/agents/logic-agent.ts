@@ -1,14 +1,15 @@
 import { AgentRunner } from './agent-runner';
 import { AgentConfig, ReviewIssue, ReviewDimension } from '../types';
+import { LLMProvider } from '../providers';
 import { LOGIC_AGENT_PROMPT } from './prompts';
 
 /**
  * LogicAgent - 专注于逻辑正确性审查
  * 检查控制流、数据流、循环、空值处理、类型匹配等逻辑问题
- * 通过 Anthropic SDK 调用 Claude API，每次审查使用独立的 API session
+ * 通过 LLMProvider 调用 LLM API，每次审查使用独立的 API session
  */
 export class LogicAgent extends AgentRunner {
-  constructor(config?: Partial<AgentConfig>, timeout?: number) {
+  constructor(config?: Partial<AgentConfig>, timeout?: number, provider?: LLMProvider) {
     const defaultConfig: AgentConfig = {
       id: config?.id || 'logic-agent',
       name: config?.name || 'Logic Correctness Agent',
@@ -22,7 +23,7 @@ export class LogicAgent extends AgentRunner {
       temperature: config?.temperature || 0.5,
     };
 
-    super(defaultConfig, timeout);
+    super(defaultConfig, timeout, provider);
   }
 
   /**

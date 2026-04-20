@@ -35,4 +35,4 @@ export {
 export { ParallelScheduler, ScheduledTask, ParallelSchedulerConfig } from './parallel-scheduler';
 
 // 结果合并器
-export { ResultMerger, MergerConfig } from './result-merger';
+export { ResultMerger } from './result-merger';

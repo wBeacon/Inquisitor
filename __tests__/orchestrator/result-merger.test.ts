@@ -1,5 +1,5 @@
 import { ResultMerger } from '../../src/orchestrator/result-merger';
-import { ReviewIssue, ReviewDimension, AgentResult, AdversaryResult, TokenUsage } from '../../src/types';
+import { ReviewIssue, ReviewDimension, AgentResult, TokenUsage } from '../../src/types';
 
 /**
  * 辅助函数：创建模拟 ReviewIssue
@@ -122,95 +122,6 @@ describe('ResultMerger', () => {
       const original = [...issues];
       merger.sort(issues);
       expect(issues[0].severity).toBe(original[0].severity);
-    });
-  });
-
-  describe('applyConfidenceAdjustments', () => {
-    it('should adjust confidence for specified indices', () => {
-      const issues = [
-        createIssue({ confidence: 0.8 }),
-        createIssue({ confidence: 0.6, line: 2 }),
-      ];
-
-      const adjusted = merger.applyConfidenceAdjustments(issues, [
-        { issueIndex: 0, newConfidence: 0.3, reason: 'looks like FP' },
-      ]);
-
-      expect(adjusted[0].confidence).toBe(0.3);
-      expect(adjusted[1].confidence).toBe(0.6);
-    });
-
-    it('should clamp confidence to 0-1 range', () => {
-      const issues = [createIssue({ confidence: 0.5 })];
-      const adjusted = merger.applyConfidenceAdjustments(issues, [
-        { issueIndex: 0, newConfidence: 1.5, reason: 'test' },
-      ]);
-      expect(adjusted[0].confidence).toBe(1);
-    });
-  });
-
-  describe('processFalsePositives', () => {
-    it('should remove low confidence false positives', () => {
-      const issues = [
-        createIssue({ confidence: 0.2 }), // 低于 0.3, 应被移除
-        createIssue({ confidence: 0.8, line: 2 }),
-      ];
-
-      const processed = merger.processFalsePositives(issues, [0]);
-      expect(processed).toHaveLength(1);
-      expect(processed[0].line).toBe(2);
-    });
-
-    it('should downgrade severity for higher confidence false positives', () => {
-      const issues = [
-        createIssue({ confidence: 0.8, severity: 'critical' }),
-      ];
-
-      const processed = merger.processFalsePositives(issues, [0]);
-      expect(processed).toHaveLength(1);
-      expect(processed[0].severity).toBe('high');
-    });
-
-    it('should not affect non-false-positive issues', () => {
-      const issues = [
-        createIssue({ severity: 'critical' }),
-        createIssue({ severity: 'high', line: 2 }),
-      ];
-
-      const processed = merger.processFalsePositives(issues, []);
-      expect(processed).toHaveLength(2);
-      expect(processed[0].severity).toBe('critical');
-    });
-  });
-
-  describe('merge (full pipeline)', () => {
-    it('should merge with adversary result', () => {
-      const originalIssues = [
-        createIssue({ description: 'original issue' }),
-      ];
-
-      const adversaryResult: AdversaryResult = {
-        agentId: 'adversary',
-        issues: [createIssue({ description: 'new issue', line: 20 })],
-        durationMs: 100,
-        tokenUsage: { input: 100, output: 50, total: 150 },
-        success: true,
-        falsePositives: [],
-        confidenceAdjustments: [],
-      };
-
-      const merged = merger.merge(originalIssues, adversaryResult);
-      expect(merged).toHaveLength(2);
-    });
-
-    it('should fall back to basic dedup/sort without adversary', () => {
-      const issues = [
-        createIssue({ severity: 'low' }),
-        createIssue({ severity: 'critical', line: 2 }),
-      ];
-
-      const merged = merger.merge(issues);
-      expect(merged[0].severity).toBe('critical');
     });
   });
 

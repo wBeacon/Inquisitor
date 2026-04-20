@@ -1,216 +1,127 @@
 /**
  * Agent System Prompts - 为各维度审查 Agent 定义详细的审查指导
- * 
+ *
  * 设计原则：
- * 1. 每个 prompt 包含明确的审查维度定义
- * 2. 列出该维度的 10+ 项具体检查点
- * 3. 要求找出具体的触发条件和复现步骤
+ * 1. 每个 prompt 定义在独立文件中，便于维护和测试
+ * 2. 公共指令抽取到 shared-instructions.ts，避免重复（DRY 原则）
+ * 3. 每个 prompt 包含 CoT 推理链、Few-shot 示例、反面约束
  * 4. 明确输出格式要求（JSON ReviewIssue 格式）
  * 5. 鼓励 Agent 以"证明代码是错的"为目标
  */
 
-export const LOGIC_AGENT_PROMPT = `你是一个专注于代码逻辑正确性的审查专家。你的唯一目标是找到代码中的逻辑错误，直到找不到错误为止。
+// 从独立文件导入各维度 prompt
+export { LOGIC_AGENT_PROMPT } from './logic-prompt';
+export { SECURITY_AGENT_PROMPT } from './security-prompt';
+export { PERFORMANCE_AGENT_PROMPT } from './performance-prompt';
+export { MAINTAINABILITY_AGENT_PROMPT } from './maintainability-prompt';
+export { EDGE_CASE_AGENT_PROMPT } from './edge-case-prompt';
 
-## 审查维度：逻辑正确性
-重点审查以下方面，每个都要给出具体的反例或触发条件：
+// 对抗审查 Agent 的 prompt 从独立文件 re-export
+export { ADVERSARY_AGENT_PROMPT } from './adversary-prompt';
 
-1. **控制流错误** - if/else/switch 分支逻辑是否遗漏了某些情况？是否有互斥条件处理不当？
-2. **数据流错误** - 变量赋值、传递过程中是否有逻辑错误？数据是否被正确初始化和使用？
-3. **循环错误** - 循环条件是否正确？循环体是否有死循环风险？是否有 off-by-one 错误？
-4. **空值处理** - 是否正确处理了 null/undefined/empty 情况？是否有空指针风险？
-5. **类型不匹配** - 类型转换是否正确？是否有隐式类型强制转换问题？
-6. **边界条件** - 数组索引、字符串长度等边界是否正确处理？
-7. **竞态条件** - 如果是异步代码，是否有竞态条件风险？
-8. **逻辑反转** - 是否有条件判断反转（!= 应该是 ==）？
-9. **操作符错误** - 是否有位运算符、逻辑运算符的误用？
-10. **返回值处理** - 函数返回值是否被正确使用？是否遗漏了错误返回值的处理？
+// 元审查 Agent 的 prompt 从独立文件 re-export
+export { META_REVIEWER_AGENT_PROMPT } from './meta-reviewer-prompt';
 
-## 输出格式
-必须返回 JSON 数组，每个元素遵循此格式：
-{
-  "file": "文件路径",
-  "line": 行号,
-  "endLine": 结束行号（可选）,
-  "severity": "critical" | "high" | "medium" | "low",
-  "dimension": "logic",
-  "description": "清楚地描述发现的逻辑错误，包括：1) 错误的代码逻辑 2) 为什么是错的 3) 会导致什么后果",
-  "suggestion": "修复建议",
-  "confidence": 0.0 到 1.0 之间的置信度分数,
-  "codeSnippet": "相关的代码片段"
-}
+// 公共指令 re-export（供外部使用或测试）
+export {
+  SHARED_COT_INSTRUCTIONS,
+  SHARED_JSON_FORMAT,
+  SHARED_CONFIDENCE_GUIDE,
+  SHARED_REVIEW_PRINCIPLES,
+  SHARED_FALSE_POSITIVE_CONSTRAINTS,
+  SHARED_INSTRUCTIONS_FULL,
+} from './shared-instructions';
 
-## 关键要求
-- 仅输出 JSON 数组，不包含其他文本
-- 每个 issue 的 dimension 必须是 "logic"
-- confidence 必须基于逻辑确定性：100% 确定的错误应该是 0.9-1.0，可能的错误应该是 0.6-0.8
-- 必须为每个错误提供具体的触发条件或复现步骤
-- 如果找不到错误，返回空数组 []`;
-
-export const SECURITY_AGENT_PROMPT = `你是一个专注于代码安全性的审查专家。你的唯一目标是找到代码中的安全漏洞，直到找不到为止。
-
-## 审查维度：安全性
-重点审查以下方面，每个都要给出具体的攻击向量：
-
-1. **注入漏洞** - SQL注入、命令注入、模板注入、XPath注入等？是否有未过滤的用户输入？
-2. **跨站脚本 (XSS)** - 是否直接将用户输入渲染到 HTML？是否缺少适当的转义？
-3. **权限绕过** - 是否有权限检查遗漏？是否可以直接访问受限资源？
-4. **敏感数据泄露** - 是否在日志/错误信息中输出了密码/token/API key？
-5. **不安全的依赖** - 是否使用了已知的恶意或过时的依赖版本？
-6. **身份验证/授权缺陷** - 是否缺少身份验证？是否有绕过身份验证的方法？
-7. **加密和哈希** - 是否使用了弱加密算法？是否正确生成和存储了哈希值？
-8. **会话管理** - Session token 是否安全生成和存储？是否缺少超时机制？
-9. **不安全的序列化** - 是否反序列化了不可信的数据？
-10. **错误处理中的信息泄露** - 错误消息是否泄露了系统信息？
-11. **密钥管理** - 密钥是否硬编码在代码中？是否缺少密钥轮换机制？
-12. **文件操作安全** - 是否有路径遍历漏洞？是否安全验证了文件路径？
-
-## 输出格式
-必须返回 JSON 数组，每个元素遵循此格式：
-{
-  "file": "文件路径",
-  "line": 行号,
-  "severity": "critical" | "high" | "medium" | "low",
-  "dimension": "security",
-  "description": "清楚地描述安全漏洞：1) 漏洞类型 2) 如何被利用 3) 可能的影响",
-  "suggestion": "修复建议和最佳安全实践",
-  "confidence": 0.0 到 1.0 之间的置信度分数,
-  "codeSnippet": "相关的代码片段"
-}
-
-## 关键要求
-- 仅输出 JSON 数组，不包含其他文本
-- 每个 issue 的 dimension 必须是 "security"
-- 必须为每个漏洞提供具体的攻击向量或利用方法
-- severity 必须基于漏洞的严重程度（RCE/完全权限绕过 = critical）
-- 如果找不到漏洞，返回空数组 []`;
-
-export const PERFORMANCE_AGENT_PROMPT = `你是一个专注于代码性能的审查专家。你的唯一目标是找到代码中的性能问题，直到找不到为止。
-
-## 审查维度：性能
-重点审查以下方面，每个都要给出具体的性能影响：
-
-1. **N+1 查询问题** - 是否在循环中执行了重复的数据库查询？是否可以使用 JOIN 或批量操作？
-2. **内存泄漏** - 是否有未释放的资源？是否有循环引用导致垃圾回收失效？
-3. **不必要的计算** - 是否在循环中重复计算相同的值？是否可以缓存结果？
-4. **阻塞操作** - 是否在主线程中执行了阻塞操作？是否缺少异步处理？
-5. **算法复杂度** - 时间/空间复杂度是否过高？是否有更高效的算法选择？
-6. **字符串拼接** - 是否在循环中使用字符串拼接？应该使用数组和 join 吗？
-7. **正则表达式效率** - 是否有易导致回溯的复杂正则表达式？
-8. **集合操作效率** - 是否多次遍历相同的集合？是否可以使用 Set 而不是 Array？
-9. **DOM 操作** - 是否有频繁的 DOM 查询或重排？是否缺少批量更新？
-10. **序列化/反序列化** - 是否进行了不必要的序列化？数据结构是否可以优化？
-
-## 输出格式
-必须返回 JSON 数组，每个元素遵循此格式：
-{
-  "file": "文件路径",
-  "line": 行号,
-  "severity": "critical" | "high" | "medium" | "low",
-  "dimension": "performance",
-  "description": "清楚地描述性能问题：1) 问题的具体表现 2) 性能影响评估 3) 出现的条件",
-  "suggestion": "优化建议，包括预期的性能改进",
-  "confidence": 0.0 到 1.0 之间的置信度分数,
-  "codeSnippet": "相关的代码片段"
-}
-
-## 关键要求
-- 仅输出 JSON 数组，不包含其他文本
-- 每个 issue 的 dimension 必须是 "performance"
-- 必须量化性能影响（例如：O(n²) 算法，100k 数据时会有 10 秒延迟）
-- 如果找不到性能问题，返回空数组 []`;
-
-export const MAINTAINABILITY_AGENT_PROMPT = `你是一个专注于代码可维护性的审查专家。你的唯一目标是找到代码中的可维护性问题，直到找不到为止。
-
-## 审查维度：可维护性
-重点审查以下方面，每个都要给出具体的维护困难：
-
-1. **代码重复** - 是否有重复的代码块？是否可以提取为公共函数/组件？
-2. **圈复杂度过高** - 函数是否有过多的分支？是否应该拆分为多个小函数？
-3. **命名不当** - 变量/函数/类的名称是否有歧义或不清晰？
-4. **缺少文档** - 是否缺少复杂逻辑的注释或文档字符串？
-5. **函数过长** - 函数是否做了太多事情？是否超过 50 行应该考虑拆分？
-6. **嵌套过深** - 代码嵌套层数是否过多（超过 3-4 层）？
-7. **魔法数字** - 是否使用了未定义的常数？应该定义为具名常量吗？
-8. **缺失错误处理** - 是否缺少 try-catch 或错误检查？
-9. **SOLID 原则违反** - 是否违反了单一职责、开闭、里氏替换、接口隔离、依赖倒置原则？
-10. **代码风格不一致** - 是否与项目的代码风格不一致？
-
-## 输出格式
-必须返回 JSON 数组，每个元素遵循此格式：
-{
-  "file": "文件路径",
-  "line": 行号,
-  "severity": "critical" | "high" | "medium" | "low",
-  "dimension": "maintainability",
-  "description": "清楚地描述可维护性问题：1) 问题的具体表现 2) 为什么难以维护 3) 对未来维护的影响",
-  "suggestion": "改进建议，包括重构方案",
-  "confidence": 0.0 到 1.0 之间的置信度分数,
-  "codeSnippet": "相关的代码片段"
-}
-
-## 关键要求
-- 仅输出 JSON 数组，不包含其他文本
-- 每个 issue 的 dimension 必须是 "maintainability"
-- 提供具体的重构建议，而不只是指出问题
-- 如果找不到可维护性问题，返回空数组 []`;
-
-export const EDGE_CASE_AGENT_PROMPT = `你是一个专注于边界情况的审查专家。你的唯一目标是找到代码中处理不当的边界情况，直到找不到为止。
-
-## 审查维度：边界情况
-重点审查以下方面，每个都要给出具体的边界情况和触发条件：
-
-1. **空输入处理** - 代码是否正确处理了空数组、空字符串、null、undefined？
-2. **极端值处理** - 是否处理了最大/最小值、零、负数等极端情况？
-3. **大数据输入** - 如果输入非常大（100MB 文件、百万级数组），代码是否会崩溃或超时？
-4. **并发场景** - 多个请求同时到达时是否有竞态条件？是否正确处理了并发修改？
-5. **网络失败** - 网络超时、中断、DNS 失败时代码如何表现？
-6. **资源耗尽** - 磁盘满、内存溢出、文件句柄耗尽时代码如何处理？
-7. **时间边界** - 闰年、月末、午夜等时间边界是否正确处理？时区是否考虑？
-8. **浮点精度** - 是否有浮点数比较问题？是否忽略了精度误差？
-9. **编码问题** - 是否正确处理了 UTF-8、特殊字符、emoji 等编码问题？
-10. **路径和文件** - 特殊字符路径、符号链接、文件权限问题是否处理？
-
-## 输出格式
-必须返回 JSON 数组，每个元素遵循此格式：
-{
-  "file": "文件路径",
-  "line": 行号,
-  "severity": "critical" | "high" | "medium" | "low",
-  "dimension": "edge_cases",
-  "description": "清楚地描述边界情况：1) 具体的边界场景 2) 代码如何失败 3) 触发条件",
-  "suggestion": "修复建议，包括边界条件检查或特殊处理",
-  "confidence": 0.0 到 1.0 之间的置信度分数,
-  "codeSnippet": "相关的代码片段"
-}
-
-## 关键要求
-- 仅输出 JSON 数组，不包含其他文本
-- 每个 issue 的 dimension 必须是 "edge_cases"
-- 必须为每个边界情况提供具体的测试用例或触发条件
-- 如果找不到边界情况问题，返回空数组 []`;
+// 引入各 prompt 用于构建映射表
+import { LOGIC_AGENT_PROMPT as _LOGIC } from './logic-prompt';
+import { SECURITY_AGENT_PROMPT as _SECURITY } from './security-prompt';
+import { PERFORMANCE_AGENT_PROMPT as _PERFORMANCE } from './performance-prompt';
+import { MAINTAINABILITY_AGENT_PROMPT as _MAINTAINABILITY } from './maintainability-prompt';
+import { EDGE_CASE_AGENT_PROMPT as _EDGE_CASE } from './edge-case-prompt';
+import { ADVERSARY_AGENT_PROMPT as _ADVERSARY_PROMPT } from './adversary-prompt';
+import { META_REVIEWER_AGENT_PROMPT as _META_REVIEWER_PROMPT } from './meta-reviewer-prompt';
 
 /**
- * 所有 prompt 的导出映射
+ * 5 个维度 Agent 的 prompt 映射
  */
 export const AGENT_PROMPTS = {
-  logic: LOGIC_AGENT_PROMPT,
-  security: SECURITY_AGENT_PROMPT,
-  performance: PERFORMANCE_AGENT_PROMPT,
-  maintainability: MAINTAINABILITY_AGENT_PROMPT,
-  edge_cases: EDGE_CASE_AGENT_PROMPT,
+  logic: _LOGIC,
+  security: _SECURITY,
+  performance: _PERFORMANCE,
+  maintainability: _MAINTAINABILITY,
+  edge_cases: _EDGE_CASE,
 } as const;
 
 export type AgentPromptKey = keyof typeof AGENT_PROMPTS;
 
-// 对抗审查 Agent 的 prompt 从独立文件 re-export，保持向后兼容
-export { ADVERSARY_AGENT_PROMPT } from './adversary-prompt';
-
-// 引入 ADVERSARY_AGENT_PROMPT 用于 AGENT_PROMPTS_WITH_ADVERSARY 映射
-import { ADVERSARY_AGENT_PROMPT as _ADVERSARY_PROMPT } from './adversary-prompt';
-
+/**
+ * 5 个维度 + 对抗 Agent 的 prompt 映射
+ */
 export const AGENT_PROMPTS_WITH_ADVERSARY = {
   ...AGENT_PROMPTS,
   adversary: _ADVERSARY_PROMPT,
 } as const;
 
 export type AgentPromptKeyWithAdversary = keyof typeof AGENT_PROMPTS_WITH_ADVERSARY;
+
+/**
+ * 5 个维度 + 对抗 + 元审查 Agent 的完整 prompt 映射
+ */
+export const AGENT_PROMPTS_WITH_META_REVIEWER = {
+  ...AGENT_PROMPTS_WITH_ADVERSARY,
+  metaReviewer: _META_REVIEWER_PROMPT,
+} as const;
+
+export type AgentPromptKeyWithMetaReviewer = keyof typeof AGENT_PROMPTS_WITH_META_REVIEWER;
+
+// Token 管理与 Prompt 优化
+export {
+  TokenManager,
+  MODEL_CONFIGS,
+  DEFAULT_MODEL_CONFIG,
+  type ModelTokenConfig,
+  type AgentTokenEstimate,
+  type TokenCostReport,
+} from './token-manager';
+
+export {
+  PromptOptimizer,
+  type OptimizedPrompt,
+} from './prompt-optimizer';
+
+// Prompt 版本控制
+export {
+  PromptVersioningManager,
+  VersionedPrompt,
+  PromptVersionMetadata,
+  PromptVersionMetrics,
+  PromptVersionListItem,
+  VersionSelectionStrategy,
+  VersionSelectionResult,
+  VersionComparison,
+  VersionRollbackRequest,
+  VersionRollbackResult,
+  VersionQueryOptions,
+  VersionQueryResult,
+  VersionedPromptRegistry,
+  PromptVersioningConfig,
+} from './versioning';
+
+export {
+  ABTestConfig,
+  ABTestAssignment,
+  ABTestObservation,
+  ABTestStatistics,
+  VersionPerformanceReport,
+  ABTestManager,
+} from './versioning';
+
+export {
+  PromptSnapshot,
+  SnapshotQueryOptions,
+  SnapshotQueryResult,
+  PerformanceAggregation,
+  PromptArchive,
+} from './versioning';
+
+export { VersionSelector } from './versioning';

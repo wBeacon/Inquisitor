@@ -1,40 +1,93 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 项目概述
+
+Inquisitor 是一个对抗式高强度代码审查引擎，设计为供 Agent 调用的 sub-agent。核心思想：多个维度 Agent 并行审查代码，再由对抗 Agent (Adversary) 挑战审查结果、寻找遗漏，直到找不到问题为止。
+
+## 常用命令
+
+```bash
+npm run build          # TypeScript 编译 (tsc)
+npm run typecheck      # 类型检查 (tsc --noEmit)
+npm test               # 运行全部测试 (Jest)
+npm test -- --testPathPattern="agents"   # 运行匹配路径的测试
+npm test -- __tests__/agents/adversary-agent.test.ts  # 运行单个测试文件
+npm run test:coverage  # 运行测试并生成覆盖率报告
+npm run lint           # ESLint 检查 src/
+```
+
+Jest 配置: `ts-jest` preset，测试文件匹配 `**/__tests__/**/*.test.ts`，路径别名 `@/` -> `src/`。
+
+## 架构
+
+审查流程由 `ReviewOrchestrator` 编排，五个阶段顺序执行：
+
+1. **输入采集** (`src/input/`) - `GitDiffCollector` 解析 git diff，`FileCollector` 扫描文件/目录，`ContextEnricher` 补充上下文
+2. **并行维度审查** (`src/agents/`) - 5 个维度 Agent (Logic/Security/Performance/Maintainability/EdgeCase) 通过 `ParallelScheduler` 并发执行，每个调用 Claude API 独立审查
+3. **对抗审查** (`src/agents/adversary-agent.ts`) - `AdversaryAgent` 接收所有维度结果，以全新视角寻找遗漏并挑战误报
+4. **校准合并** (`src/orchestrator/result-merger.ts`, `src/agents/issue-calibrator.ts`) - 去重、合并、根据对抗结果调整置信度，按 `severityThreshold` 过滤
+5. **报告生成** (`src/output/`) - `ReportGenerator` 输出 JSON 和 Markdown 双格式报告
+
+### 关键类继承关系
+
+- `AgentRunner` (抽象基类) - 封装 Claude API 调用、超时控制、JSON 响应解析、issue 校验修正
+  - `LogicAgent` / `SecurityAgent` / `PerformanceAgent` / `MaintainabilityAgent` / `EdgeCaseAgent` - 各维度具体 Agent
+  - `AdversaryAgent` - 继承 AgentRunner，额外提供 `challenge()` 方法
+
+### Skill 集成层 (`src/skill/`)
+
+- `ReviewSkill` - 封装完整审查流程，对外暴露 `execute(params)` 接口
+- `review-command.ts` - 解析 `/review` 命令行参数
+- `config-loader.ts` - 加载项目根目录的 `.inquisitor.json` 配置文件
+- `progress-reporter.ts` - 审查进度回调
+
+### 共享工具 (`src/utils/`)
+
+- `language-util.ts` - 统一的文件扩展名到语言映射（消除了三处重复实现）
+- `severity.ts` - severity 级别比较工具
+
+## 类型系统 (`src/types/`)
+
+核心类型定义在 `review.ts` 和 `agent.ts` 中：
+- `ReviewRequest` / `ReviewReport` / `ReviewIssue` - 审查输入输出
+- `ReviewDimension` 枚举: logic / security / performance / maintainability / edge_cases / adversary-found
+- `Severity`: critical > high > medium > low
+- `AgentConfig` / `AgentResult` / `AdversaryResult` - Agent 配置和结果
+
+## 开发规则
+
+- 不要移除或弱化已有测试
+- 所有代码注释使用中文
+- 所有对话使用中文
+- 不使用 emoji
 
 ---
-# Claude-Forever Harness Context
+
+## Claude-Forever Harness Context
 
 This project is managed by claude-forever, an autonomous coding harness.
 IMPORTANT files to read at the start of each session:
 - `claude-progress.txt` — session-by-session progress log (READ first, APPEND when done)
 - `git log --oneline -10` — recent commit history
 
-**Goal:** 我想做一个高强度review代码的工具，给Agent使用，它需要完全不在意消耗的token，只为找到代码的任何问题。
-这个工具我想可以以sub-agent的形式存在，或者你可以有更好的想法。
-该工具每次review的时候应该和调用它的Agent有隔离的上下文，以避免上下文带来的影响，以找到更深层的bug。
-
-如果你想参考业内最高水平的实现，可以看这几个方向：
-CodeRabbit / Qodo (原 CodiumAI)： 它们通过分析 AST（抽象语法树）结合 LLM，不是只读 diff，而是理解整棵代码树。
-Claude Code (Anthropic) 的子任务模式： Claude Code 在处理复杂任务时，会启动独立的子任务进程去“探索”和“校验”，主进程只负责编排。
-SWE-bench 冠军方案（如 OpenHands/Devin）： 它们通常包含一个 Verifier Agent。这个 Agent 的唯一任务是证明 Code Agent 写的代码是错的，直到它找不到错为止。
-
-我的想法就是像最后一个方向一样，证明CodeAgent写的代码是错的，直到它找不到错位置。
-工具可以只负责review不负责修改，也可以同时负责修改并再次进入review-修改的循环，这个你可以定或者我们先讨论再定。
-
 **Completed features:**
-- [x] Feature #1: 项目脚手架与核心类型系统 -- 建立 TypeScript 项目结构、定义所有核心接口（ReviewRequest、ReviewIssue、ReviewReport 等），以及 review 维度枚举（逻辑正确性、安全性、性能、可维护性、边界情况）
-- [x] Feature #2: 输入采集层 -- 实现 Git diff 解析器和文件/目录扫描器，能将待审查代码转化为结构化的 ReviewRequest，包含变更代码及其周围上下文
-- [x] Feature #3: 维度审查 Agent 系统 -- 实现多个独立的维度审查 Agent，每个 Agent 专注一个审查维度，拥有独立的 system prompt 和审查策略，通过 Claude Code 的 Agent tool 以隔离上下文运行
-- [x] Feature #4: 对抗式 Adversary Agent -- 实现独立的对抗审查器，接收所有维度 Agent 的审查结果，以全新视角重新审视代码，专门寻找被遗漏的问题并挑战已有结论中的误报
-- [x] Feature #5: 编排器 (Orchestrator) -- 实现整个 review 流程的编排逻辑: 采集输入 -> 并行维度审查 -> 对抗审查 -> 去重校准 -> 生成报告
-- [x] Feature #6: 输出层与报告生成 -- 实现 JSON 和 Markdown 双格式报告生成器，JSON 供 CodeAgent 程序化消费，Markdown 供人类阅读
-- [x] Feature #7: Claude Code Skill 集成 -- 将整个 review 引擎封装为 Claude Code Skill，支持 /review 命令调用，处理参数解析、配置加载、进度反馈
-- [x] Feature #8: 实现 severityThreshold 过滤与清理死代码 -- config-loader 加载的 severityThreshold 从未在审查流程中生效，review-orchestrator.ts 是被 orchestrator.ts 替代的遗留文件（0% 覆盖率）。需要：(1) 在 Orchestrator 或 ReportGenerator 中根据 severityThreshold 过滤低于阈值的问题；(2) 删除 review-orchestrator.ts 死代码；(3) 清理 config.dimensions/formats 字段在 ReviewSkill 中的透传逻辑
-- [x] Feature #9: 修复 Timer 泄漏与加固 execSync 安全性 -- ParallelScheduler.createTimeoutPromise 创建的 setTimeout 在任务正常完成后不会被清除，导致 Timer 泄漏（Jest 报告 detectOpenHandles）。GitDiffCollector.getDiffOutput 使用 execSync 拼接 ref 参数，存在命令注入风险（如 ref='HEAD; rm -rf /'）。需要：(1) 使用 AbortController 或手动 clearTimeout 清理已完成任务的定时器；(2) 对 git ref 参数进行白名单校验
+- [x] Feature #1: 项目脚手架与核心类型系统
+- [x] Feature #2: 输入采集层 (Git diff 解析器 + 文件/目录扫描器)
+- [x] Feature #3: 维度审查 Agent 系统 (5 个独立维度 Agent)
+- [x] Feature #4: 对抗式 Adversary Agent
+- [x] Feature #5: 编排器 (Orchestrator)
+- [x] Feature #6: 输出层与报告生成 (JSON + Markdown)
+- [x] Feature #7: Claude Code Skill 集成 (/review 命令)
+- [x] Feature #8: severityThreshold 过滤与死代码清理
+- [x] Feature #9: Timer 泄漏修复与 execSync 安全加固
+- [x] Feature #10: inferLanguage 去重与 AdversaryAgent 继承重构
 
-**Current feature:** #10: 消除 inferLanguage 三处重复实现与 AdversaryAgent/AgentRunner 代码重复 -- inferLanguage 在 GitDiffCollector、FileCollector、ContextEnricher 三处各自维护一份语言映射表，维护成本高且容易不一致。AdversaryAgent 独立重写了 callClaudeAPI 和 JSON 解析逻辑而非继承 AgentRunner。需要：(1) 抽取共享 language-util 模块；(2) 让 AdversaryAgent 继承 AgentRunner 复用 API 调用和解析能力
+**Current feature:** None - All core features completed. Ready for optimization/enhancement phase.
 
 **Rules:**
 - Do NOT remove or weaken existing tests
 - Self-verify all features before considering them done
 - Commit with descriptive messages
 - Append progress summary to claude-progress.txt before exiting
-

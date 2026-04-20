@@ -5,7 +5,8 @@
  * 1. AgentRunner: 基础抽象类，定义 Agent 执行接口
  * 2. 五个维度 Agent: LogicAgent、SecurityAgent、PerformanceAgent、MaintainabilityAgent、EdgeCaseAgent
  * 3. AdversaryAgent: 对抗式审查，以全新视角寻找遗漏问题和质疑误报
- * 4. IssueCalibrator: 根据对抗审查结果调整置信度和去重
+ * 4. MetaReviewerAgent: 元审查，从整体视角评估完整的审查报告
+ * 5. IssueCalibrator: 根据对抗审查结果调整置信度和去重
  *
  * 典型用法：
  * ```typescript
@@ -31,6 +32,11 @@
  * // 调整问题
  * const calibrator = new IssueCalibrator();
  * const finalIssues = calibrator.calibrate(allIssues, adversaryResult);
+ *
+ * // 执行元审查
+ * const metaReviewer = new MetaReviewerAgent();
+ * const report: ReviewReport = { issues: finalIssues, summary, metadata };
+ * const metaReviewResult = await metaReviewer.analyze(report, files, context);
  * ```
  */
 
@@ -41,5 +47,6 @@ export { PerformanceAgent } from './performance-agent';
 export { MaintainabilityAgent } from './maintainability-agent';
 export { EdgeCaseAgent } from './edge-case-agent';
 export { AdversaryAgent, type IssueJudgment, type AdversaryReviewResponse } from './adversary-agent';
+export { MetaReviewerAgent } from './meta-reviewer';
 export { IssueCalibrator, IssueCalibrtor } from './issue-calibrator';
 export * from './prompts';

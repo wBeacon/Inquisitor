@@ -63,6 +63,7 @@ describe('ReportGenerator', () => {
         [ReviewDimension.Performance]: 1,
         [ReviewDimension.Maintainability]: 1,
         [ReviewDimension.EdgeCases]: 0,
+        [ReviewDimension.AdversaryFound]: 0,
       },
     },
     metadata: {
@@ -94,6 +95,7 @@ describe('ReportGenerator', () => {
         [ReviewDimension.Performance]: 0,
         [ReviewDimension.Maintainability]: 0,
         [ReviewDimension.EdgeCases]: 0,
+        [ReviewDimension.AdversaryFound]: 0,
       },
     },
     metadata: {
@@ -298,6 +300,86 @@ describe('ReportGenerator', () => {
 
       expect(markdown).toContain('logic-agent');
       expect(markdown).toContain('security-agent');
+    });
+  });
+
+  describe('incompleteAgents rendering', () => {
+    const failureMetadata = {
+      durationMs: 300100,
+      tokenUsage: { input: 0, output: 0, total: 0 },
+      startedAt: new Date(Date.now() - 300100).toISOString(),
+      completedAt: new Date().toISOString(),
+      agents: ['logic-agent', 'security-agent', 'performance-agent'],
+    };
+
+    it('should render top-level warning and drop "quality good" when 0 issues but agents failed', () => {
+      const reportAllFailed: ReviewReport = {
+        issues: [],
+        summary: emptyReport.summary,
+        metadata: {
+          ...failureMetadata,
+          incompleteAgents: [
+            { agentId: 'logic-agent', error: 'Agent logic-agent timeout after 300000ms', durationMs: 300001 },
+            { agentId: 'security-agent', error: 'Agent security-agent timeout after 300000ms', durationMs: 300005 },
+            { agentId: 'performance-agent', error: 'Agent performance-agent timeout after 300000ms', durationMs: 300010 },
+          ],
+        },
+      };
+
+      const generator = new ReportGenerator();
+      const markdown = generator.toMarkdown(reportAllFailed);
+
+      expect(markdown).toContain('审查未完整执行');
+      expect(markdown).toContain('3 个 Agent 失败或超时');
+      expect(markdown).toContain('logic-agent');
+      expect(markdown).toContain('timeout after 300000ms');
+      expect(markdown).not.toContain('✅ 没有发现问题，代码质量良好');
+      expect(markdown).toContain('Agent 失败详情');
+    });
+
+    it('should render warning AND normal issue details when both exist', () => {
+      const reportMixed: ReviewReport = {
+        ...mockReport,
+        metadata: {
+          ...mockReport.metadata,
+          incompleteAgents: [
+            { agentId: 'edge-case-agent', error: 'Agent timeout', durationMs: 300000 },
+          ],
+        },
+      };
+
+      const generator = new ReportGenerator();
+      const markdown = generator.toMarkdown(reportMixed);
+
+      expect(markdown).toContain('审查未完整执行');
+      expect(markdown).toContain('edge-case-agent');
+      expect(markdown).toContain('Null pointer exception risk');
+      expect(markdown).toContain('SQL injection vulnerability');
+    });
+
+    it('should keep "quality good" message when no failures (regression guard)', () => {
+      const generator = new ReportGenerator();
+      const markdown = generator.toMarkdown(emptyReport);
+
+      expect(markdown).not.toContain('审查未完整执行');
+      expect(markdown).not.toContain('Agent 失败详情');
+      expect(markdown).toContain('✅ 没有发现问题');
+    });
+
+    it('should treat empty incompleteAgents array as "no failures"', () => {
+      const reportEmptyFailures: ReviewReport = {
+        ...emptyReport,
+        metadata: {
+          ...emptyReport.metadata,
+          incompleteAgents: [],
+        },
+      };
+
+      const generator = new ReportGenerator();
+      const markdown = generator.toMarkdown(reportEmptyFailures);
+
+      expect(markdown).not.toContain('审查未完整执行');
+      expect(markdown).toContain('✅ 没有发现问题');
     });
   });
 

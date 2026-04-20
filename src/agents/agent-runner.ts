@@ -1,19 +1,34 @@
-import Anthropic from '@anthropic-ai/sdk';
-import { AgentConfig, AgentResult, ReviewIssue, ReviewDimension } from '../types';
+import { AgentConfig, AgentResult, ReviewIssue, ReviewDimension, TokenMetrics } from '../types';
+import { LLMProvider, createProvider } from '../providers';
+import { TokenEstimator } from '../utils/token-estimator';
+import { PromptOptimizer } from './prompts/prompt-optimizer';
 
 /**
  * AgentRunner - 执行代码审查 Agent 的基础类
- * 通过 Anthropic SDK 调用 Claude API，每个 Agent 在独立上下文中运行
+ * 通过 LLMProvider 调用 LLM API，每个 Agent 在独立上下文中运行
  * 不共享任何可变状态，每次 review 创建独立的 API session
  */
 export abstract class AgentRunner {
   protected readonly config: AgentConfig;
   protected readonly timeout: number;
+  /** LLM Provider 实例，延迟初始化以保持向后兼容 */
+  private _provider?: LLMProvider;
 
-  constructor(config: AgentConfig, timeout: number = 300000) {
+  constructor(config: AgentConfig, timeout: number = 300000, provider?: LLMProvider) {
     // 5分钟默认超时
     this.config = { ...config }; // 深拷贝配置，确保隔离
     this.timeout = timeout;
+    this._provider = provider;
+  }
+
+  /**
+   * 获取 LLM Provider（延迟创建，默认使用 Anthropic）
+   */
+  protected getProvider(): LLMProvider {
+    if (!this._provider) {
+      this._provider = createProvider();
+    }
+    return this._provider;
   }
 
   /**
@@ -24,12 +39,13 @@ export abstract class AgentRunner {
    */
   async review(files: string[], context: string): Promise<AgentResult> {
     const startTime = Date.now();
+    let timerId: ReturnType<typeof setTimeout> | undefined;
 
     try {
       // 使用 Promise.race 实现超时控制
       const reviewPromise = this.performReview(files, context);
       const timeoutPromise = new Promise<never>((_resolve, reject) => {
-        setTimeout(() => reject(new Error(`Agent ${this.config.id} timeout after ${this.timeout}ms`)), this.timeout);
+        timerId = setTimeout(() => reject(new Error(`Agent ${this.config.id} timeout after ${this.timeout}ms`)), this.timeout);
       });
 
       const issues = await Promise.race([reviewPromise, timeoutPromise]);
@@ -40,11 +56,12 @@ export abstract class AgentRunner {
         issues,
         durationMs,
         tokenUsage: {
-          // 由 performReview 设置的实际值
+          // 由 callLLM 设置的实际值
           input: this._lastTokenUsage.input,
           output: this._lastTokenUsage.output,
           total: this._lastTokenUsage.total,
         },
+        tokenMetrics: this._tokenMetrics,
         success: true,
       };
     } catch (error) {
@@ -59,53 +76,168 @@ export abstract class AgentRunner {
           output: this._lastTokenUsage.output,
           total: this._lastTokenUsage.total,
         },
+        tokenMetrics: this._tokenMetrics,
         success: false,
         error: error instanceof Error ? error.message : String(error),
       };
+    } finally {
+      // 无论成功或失败，都清除超时定时器，防止 Timer 泄漏
+      if (timerId !== undefined) {
+        clearTimeout(timerId);
+      }
     }
   }
 
-  // 每次 review 调用的 token 使用量，由 callClaudeAPI 更新
+  // 每次 review 调用的 token 使用量，由 callLLM 更新
   // 初始化为空使用量，实际值由 API 响应填充
   protected _lastTokenUsage: { input: number; output: number; total: number } =
     this.createEmptyTokenUsage();
+
+  // 详细的 token 度量信息（可选）
+  protected _tokenMetrics?: TokenMetrics;
+
+  // 预 API 估计值（用于计算效率指标）
+  protected _preApiEstimate?: ReturnType<TokenEstimator['estimate']>;
 
   protected createEmptyTokenUsage(): { input: number; output: number; total: number } {
     const empty = 0;
     return { input: empty, output: empty, total: empty };
   }
 
-  /**
-   * 调用 Claude API 执行审查
-   * 每次调用创建独立的 Anthropic 客户端实例，确保完全隔离
-   */
-  protected async callClaudeAPI(userMessage: string): Promise<string> {
-    // 每次调用创建新的客户端实例，确保无共享状态
-    const client = new Anthropic();
+  /** 静态共享的 PromptOptimizer 和 TokenEstimator 实例，避免重复初始化 */
+  private static _sharedOptimizer?: PromptOptimizer;
+  private static _sharedEstimator?: TokenEstimator;
 
-    const response = await client.messages.create({
-      model: this.config.model || 'claude-sonnet-4-20250514',
-      max_tokens: this.config.maxTokens || 4000,
+  private static getOptimizer(): PromptOptimizer {
+    if (!AgentRunner._sharedOptimizer) {
+      AgentRunner._sharedOptimizer = new PromptOptimizer();
+    }
+    return AgentRunner._sharedOptimizer;
+  }
+
+  private static getEstimator(): TokenEstimator {
+    if (!AgentRunner._sharedEstimator) {
+      AgentRunner._sharedEstimator = new TokenEstimator();
+    }
+    return AgentRunner._sharedEstimator;
+  }
+
+  /**
+   * 调用 LLM API 执行审查（Provider 无关）
+   * 通过注入的 LLMProvider 发送请求，自动追踪 token 用量
+   */
+  protected async callLLM(userMessage: string): Promise<string> {
+    const provider = this.getProvider();
+    const model = this.config.model || provider.defaultModel;
+    const maxTokens = this.config.maxTokens || 4000;
+
+    // PRE-API: PromptOptimizer 自动优化（压缩 + 截断）
+    const optimizer = AgentRunner.getOptimizer();
+    const optimized = optimizer.optimize(
+      this.config.systemPrompt,
+      userMessage,
+      model,
+      maxTokens,
+    );
+
+    // 使用优化后的 prompt
+    const effectiveSystemPrompt = optimized.systemPrompt;
+    const effectiveUserMessage = optimized.userMessage;
+
+    if (optimized.wasCompressed || optimized.wasTruncated) {
+      console.info(
+        `[${this.config.id}] Prompt optimized: ` +
+        `${optimized.originalTokens} -> ${optimized.optimizedTokens} tokens ` +
+        `(${optimized.compressionPercentage.toFixed(1)}% reduction, ` +
+        `strategies: ${optimized.strategiesApplied.join(', ')})`
+      );
+    }
+
+    // PRE-API: 估计 token 使用量
+    const estimator = AgentRunner.getEstimator();
+    const estimate = estimator.estimate(
+      effectiveSystemPrompt,
+      effectiveUserMessage,
+      maxTokens,
+      model
+    );
+
+    // 记录估计结果
+    if (estimate.status === 'error') {
+      const message = `Token estimation error: ${estimate.statusMessage}`;
+      console.error(`[${this.config.id}] ${message}`);
+      throw new Error(message);
+    } else if (estimate.status === 'warning') {
+      console.warn(`[${this.config.id}] Token warning: ${estimate.statusMessage}`);
+    } else {
+      console.info(`[${this.config.id}] Token estimate: ${estimator.summarize(estimate)}`);
+    }
+
+    // 保存预 API 估计
+    this._preApiEstimate = estimate;
+
+    // API 调用
+    const response = await provider.chat({
+      model,
+      systemPrompt: effectiveSystemPrompt,
+      userMessage: effectiveUserMessage,
+      maxTokens,
       temperature: this.config.temperature || 0.5,
-      system: this.config.systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: userMessage,
-        },
-      ],
     });
 
     // 追踪 token 使用量
-    this._lastTokenUsage = {
-      input: response.usage.input_tokens,
-      output: response.usage.output_tokens,
-      total: response.usage.input_tokens + response.usage.output_tokens,
-    };
+    this._lastTokenUsage = { ...response.tokenUsage };
 
-    // 提取文本内容
-    const textContent = response.content.find((block) => block.type === 'text');
-    return textContent ? textContent.text : '';
+    // POST-API: 计算实际 vs 估计的效率指标
+    if (this._preApiEstimate) {
+      this._tokenMetrics = {
+        estimatedInputTokens: this._preApiEstimate.totalInputTokens,
+        estimatedOutputTokens: this._preApiEstimate.estimatedOutputTokens,
+        estimatedTotalTokens: this._preApiEstimate.estimatedTotalTokens,
+
+        actualInputTokens: response.tokenUsage.input,
+        actualOutputTokens: response.tokenUsage.output,
+        actualTotalTokens: response.tokenUsage.total,
+
+        efficiency: {
+          inputAccuracy:
+            this._preApiEstimate.totalInputTokens > 0
+              ? response.tokenUsage.input / this._preApiEstimate.totalInputTokens
+              : 1.0,
+          outputAccuracy:
+            this._preApiEstimate.estimatedOutputTokens > 0
+              ? response.tokenUsage.output / this._preApiEstimate.estimatedOutputTokens
+              : 1.0,
+          totalAccuracy:
+            this._preApiEstimate.estimatedTotalTokens > 0
+              ? response.tokenUsage.total / this._preApiEstimate.estimatedTotalTokens
+              : 1.0,
+        },
+
+        contextWindowSize: this._preApiEstimate.contextWindowSize,
+        utilizationPercentage:
+          (response.tokenUsage.input / this._preApiEstimate.contextWindowSize) * 100,
+
+        preApiStatus: this._preApiEstimate.status,
+        preApiMessage: this._preApiEstimate.statusMessage,
+      };
+
+      console.info(
+        `[${this.config.id}] Token usage: ` +
+          `actual ${response.tokenUsage.total}/${this._preApiEstimate.estimatedTotalTokens} ` +
+          `(${(this._tokenMetrics.efficiency.totalAccuracy * 100).toFixed(0)}% accuracy)`
+      );
+    }
+
+    return response.text;
+  }
+
+  /**
+   * 调用 Claude API 执行审查
+   * @deprecated 请使用 callLLM()。保留此方法以兼容现有子类。
+   */
+  protected async callClaudeAPI(userMessage: string): Promise<string> {
+    return this.callLLM(userMessage);
   }
 
   /**

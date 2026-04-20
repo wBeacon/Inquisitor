@@ -31,7 +31,7 @@ export interface DiffLine {
  * 范围表达式(main..HEAD, main...HEAD)
  * 不允许: shell 元字符(; | & ` $ ( ) { } < > ! \n 等)
  */
-const VALID_REF_PATTERN = /^[a-zA-Z0-9_./~^@:,\-]+$/;
+const VALID_REF_PATTERN = /^[a-zA-Z0-9_./~^@:,-]+$/;
 
 /**
  * GitDiffCollector - 解析 git diff 输出

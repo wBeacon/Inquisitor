@@ -13,6 +13,8 @@ export enum ReviewDimension {
   Maintainability = 'maintainability',
   /** 边界情况 - 检查空值、溢出、并发、异常路径等边界条件 */
   EdgeCases = 'edge_cases',
+  /** 对抗审查发现 - 对抗 Agent 发现的新问题 */
+  AdversaryFound = 'adversary-found',
 }
 
 /**
@@ -71,6 +73,20 @@ export interface ReviewSummary {
 }
 
 /**
+ * Agent 执行失败信息 - 用于报告未完整执行的审查
+ * 当维度 Agent 或对抗 Agent 超时/出错时记录，
+ * 供报告层展示"审查不完整"警告，防止调用方把未完整审查误读为"代码无问题"。
+ */
+export interface AgentFailureInfo {
+  /** 失败的 Agent 标识 */
+  agentId: string;
+  /** 失败原因（通常是 ParallelScheduler 的 timeout 消息或 Agent 抛出的 error.message） */
+  error: string;
+  /** 失败前的执行耗时（毫秒） */
+  durationMs: number;
+}
+
+/**
  * 审查元数据 - 记录审查过程的运行信息
  */
 export interface ReviewMetadata {
@@ -84,6 +100,11 @@ export interface ReviewMetadata {
   completedAt: string;
   /** 参与审查的 Agent 列表 */
   agents: string[];
+  /**
+   * 失败或超时的 Agent 列表（维度 Agent + 对抗 Agent）
+   * 非空表示本次审查不完整：报告结论不应被解读为"代码无问题"。
+   */
+  incompleteAgents?: AgentFailureInfo[];
 }
 
 /**
@@ -108,6 +129,8 @@ export interface ReviewReport {
   summary: ReviewSummary;
   /** 审查元数据 */
   metadata: ReviewMetadata;
+  /** 元审查结果（如果启用 enableMetaReview） */
+  metaReview?: import('./agent').MetaReviewResult;
 }
 
 /**

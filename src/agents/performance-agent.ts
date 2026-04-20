@@ -1,14 +1,15 @@
 import { AgentRunner } from './agent-runner';
 import { AgentConfig, ReviewIssue, ReviewDimension } from '../types';
+import { LLMProvider } from '../providers';
 import { PERFORMANCE_AGENT_PROMPT } from './prompts';
 
 /**
  * PerformanceAgent - 专注于性能审查
  * 检查 N+1 查询、内存泄漏、不必要的计算、阻塞操作等性能问题
- * 通过 Anthropic SDK 调用 Claude API，每次审查使用独立的 API session
+ * 通过 LLMProvider 调用 LLM API，每次审查使用独立的 API session
  */
 export class PerformanceAgent extends AgentRunner {
-  constructor(config?: Partial<AgentConfig>, timeout?: number) {
+  constructor(config?: Partial<AgentConfig>, timeout?: number, provider?: LLMProvider) {
     const defaultConfig: AgentConfig = {
       id: config?.id || 'performance-agent',
       name: config?.name || 'Performance Issues Agent',
@@ -22,7 +23,7 @@ export class PerformanceAgent extends AgentRunner {
       temperature: config?.temperature || 0.5,
     };
 
-    super(defaultConfig, timeout);
+    super(defaultConfig, timeout, provider);
   }
 
   /**

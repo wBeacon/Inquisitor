@@ -155,7 +155,7 @@ describe('AdversaryAgent', () => {
       expect(result.confidenceAdjustments.length).toBeGreaterThanOrEqual(2);
 
       // 所有 judgment 都有 reason
-      const judgments = (result as unknown as Record<string, unknown>)._judgments as IssueJudgment[];
+      const judgments = result.judgments as IssueJudgment[];
       expect(judgments).toBeDefined();
       for (const j of judgments) {
         expect(j.reason).toBeTruthy();

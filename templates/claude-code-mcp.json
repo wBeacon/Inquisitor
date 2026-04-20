@@ -1,0 +1,10 @@
+{
+  "_comment": "Inquisitor MCP Server 配置 - Claude Code。将此文件内容合并到项目根目录的 .claude/settings.json 中，Claude Code 将自动连接 Inquisitor MCP Server，提供 review_diff、review_files、configure 三个工具。",
+  "mcpServers": {
+    "inquisitor": {
+      "command": "npx",
+      "args": ["inquisitor-mcp", "--stdio"],
+      "description": "Inquisitor 对抗式高强度代码审查引擎，提供 review_diff/review_files/configure 工具"
+    }
+  }
+}

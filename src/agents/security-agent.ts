@@ -1,14 +1,15 @@
 import { AgentRunner } from './agent-runner';
 import { AgentConfig, ReviewIssue, ReviewDimension } from '../types';
+import { LLMProvider } from '../providers';
 import { SECURITY_AGENT_PROMPT } from './prompts';
 
 /**
  * SecurityAgent - 专注于安全性审查
  * 检查注入漏洞、XSS、权限绕过、数据泄露等安全问题
- * 通过 Anthropic SDK 调用 Claude API，每次审查使用独立的 API session
+ * 通过 LLMProvider 调用 LLM API，每次审查使用独立的 API session
  */
 export class SecurityAgent extends AgentRunner {
-  constructor(config?: Partial<AgentConfig>, timeout?: number) {
+  constructor(config?: Partial<AgentConfig>, timeout?: number, provider?: LLMProvider) {
     const defaultConfig: AgentConfig = {
       id: config?.id || 'security-agent',
       name: config?.name || 'Security Vulnerabilities Agent',
@@ -22,7 +23,7 @@ export class SecurityAgent extends AgentRunner {
       temperature: config?.temperature || 0.5,
     };
 
-    super(defaultConfig, timeout);
+    super(defaultConfig, timeout, provider);
   }
 
   /**

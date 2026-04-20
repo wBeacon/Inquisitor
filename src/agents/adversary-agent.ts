@@ -1,22 +1,10 @@
-import { AgentConfig, ReviewIssue, AdversaryResult, ReviewDimension } from '../types';
+import { AgentConfig, ReviewIssue, AdversaryResult, ReviewDimension, IssueJudgment } from '../types';
 import { ADVERSARY_AGENT_PROMPT } from './prompts/adversary-prompt';
 import { AgentRunner } from './agent-runner';
+import { LLMProvider } from '../providers';
 
-/**
- * AdversaryResult 中的问题判断
- */
-export interface IssueJudgment {
-  /** 已有问题列表中的索引 */
-  existingIssueIndex: number;
-  /** 判断结果：confirmed、disputed、false_positive */
-  judgment: 'confirmed' | 'disputed' | 'false_positive';
-  /** 判断理由（必须非空） */
-  reason: string;
-  /** 建议的置信度调整 */
-  suggestedConfidenceAdjustment?: number;
-  /** 建议的严重程度调整 */
-  suggestedSeverityAdjustment?: string;
-}
+// 从 types 中 re-export IssueJudgment，保持向后兼容
+export { IssueJudgment } from '../types';
 
 /**
  * AdversaryAgent 的审查响应格式
@@ -35,7 +23,7 @@ export interface AdversaryReviewResponse {
  * 通过 Anthropic SDK 调用 Claude API，在完全隔离的上下文中运行。
  */
 export class AdversaryAgent extends AgentRunner {
-  constructor(config?: Partial<AgentConfig>) {
+  constructor(config?: Partial<AgentConfig>, provider?: LLMProvider) {
     const fullConfig: AgentConfig = {
       id: config?.id || 'adversary-agent',
       name: config?.name || 'Adversary Code Review Agent',
@@ -49,7 +37,7 @@ export class AdversaryAgent extends AgentRunner {
     };
 
     const timeout = config?.maxTokens ? config.maxTokens * 100 : 300000;
-    super(fullConfig, timeout);
+    super(fullConfig, timeout, provider);
   }
 
   /**
@@ -107,7 +95,7 @@ export class AdversaryAgent extends AgentRunner {
       };
 
       // 附加完整的判断信息，供 IssueCalibrator 使用
-      (adversaryResult as unknown as Record<string, unknown>)['_judgments'] = result.issueJudgments;
+      adversaryResult.judgments = result.issueJudgments;
 
       return adversaryResult;
     } catch (error) {
@@ -152,11 +140,16 @@ export class AdversaryAgent extends AgentRunner {
 
   /**
    * 构建发送给 Claude API 的用户消息
+   * @param files 文件列表
+   * @param context 代码上下文
+   * @param existingIssues 已有问题列表
+   * @param previousRoundFindings 前几轮对抗审查发现的新问题（多轮迭代用）
    */
-  private buildUserMessage(
+  buildUserMessage(
     files: string[],
     context: string,
-    existingIssues: ReviewIssue[]
+    existingIssues: ReviewIssue[],
+    previousRoundFindings?: ReviewIssue[]
   ): string {
     let message = '## 待审查代码\n\n';
 
@@ -191,6 +184,18 @@ export class AdversaryAgent extends AgentRunner {
       });
     } else {
       message += '## 已有审查问题\n\n无已有问题。请专注于寻找新问题。\n\n';
+    }
+
+    // 添加前几轮对抗审查的发现（多轮迭代时）
+    if (previousRoundFindings && previousRoundFindings.length > 0) {
+      message += '## 前轮对抗审查已发现的问题\n\n';
+      message += '以下问题已在之前的对抗轮次中被发现，请勿重复报告，专注于寻找新的遗漏：\n\n';
+
+      previousRoundFindings.forEach((issue, index) => {
+        message += `### 已发现 #${index} [${issue.severity}]\n`;
+        message += `- 文件: ${issue.file}, 行号: ${issue.line}\n`;
+        message += `- 描述: ${issue.description}\n\n`;
+      });
     }
 
     message += '请按照系统提示中定义的 JSON 格式输出你的审查结果。';
@@ -260,7 +265,7 @@ export class AdversaryAgent extends AgentRunner {
           line: obj.line as number,
           severity,
           // 所有对抗审查发现的问题统一标记为 'adversary-found'
-          dimension: 'adversary-found' as unknown as ReviewIssue['dimension'],
+          dimension: ReviewDimension.AdversaryFound,
           description: obj.description as string,
           suggestion: obj.suggestion as string,
           confidence,

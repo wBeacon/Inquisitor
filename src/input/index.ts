@@ -26,3 +26,5 @@ export { GitDiffCollector } from './git-diff-collector';
 export type { DiffHunk, DiffLine } from './git-diff-collector';
 export { FileCollector } from './file-collector';
 export { ContextEnricher } from './context-enricher';
+export { ProjectContextCollector } from './project-context-collector';
+export type { ProjectContext, ConfigFileEntry, ProjectContextCollectorOptions } from './project-context-collector';

@@ -1,15 +1,5 @@
-import { ReviewIssue, AdversaryResult } from '../types';
-import { IssueJudgment } from './adversary-agent';
-
-/**
- * severity 降级映射: critical -> high, high -> medium, medium -> low, low -> low
- */
-const SEVERITY_DOWNGRADE: Record<string, ReviewIssue['severity']> = {
-  critical: 'high',
-  high: 'medium',
-  medium: 'low',
-  low: 'low',
-};
+import { ReviewIssue, AdversaryResult, IssueJudgment } from '../types';
+import { SEVERITY_DOWNGRADE, SEVERITY_ORDER } from '../utils/severity';
 
 /**
  * IssueCalibrator - 根据对抗审查结果调整问题置信度
@@ -41,8 +31,7 @@ export class IssueCalibrator {
     );
 
     // 第二步：基于判断进行 false_positive 处理（移除或降级 severity）
-    const judgments: IssueJudgment[] =
-      (adversaryResult as unknown as Record<string, unknown>)._judgments as IssueJudgment[] || [];
+    const judgments: IssueJudgment[] = adversaryResult.judgments ?? [];
     const processedIssues = this.processFalsePositives(
       adjustedIssues,
       adversaryResult.falsePositives,
@@ -131,12 +120,12 @@ export class IssueCalibrator {
 
   /**
    * 过滤低置信度问题
-   * 被标记为 false_positive 后置信度低于 0.3 的在 processFalsePositives 中已处理
-   * 此方法额外过滤所有置信度 < 0.3 且被 adversary 标记为 false_positive 的问题
-   * （已在 processFalsePositives 中处理，此方法作为保险）
+   * 移除所有置信度低于 0.3 的问题，无论是否被标记为 false_positive
+   * 与 processFalsePositives 互补：后者处理 FP 的低置信度移除和降级，
+   * 此方法作为全局兜底过滤，确保最终报告中不包含置信度过低的问题
    */
   filterLowConfidence(issues: ReviewIssue[]): ReviewIssue[] {
-    return issues;
+    return issues.filter(issue => issue.confidence >= 0.3);
   }
 
   /**
@@ -183,13 +172,11 @@ export class IssueCalibrator {
    * 按严重程度和置信度排序
    */
   sortIssues(issues: ReviewIssue[]): ReviewIssue[] {
-    const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-
     return issues.sort((a, b) => {
       // 首先按严重程度排序
       const severityDiff =
-        severityOrder[a.severity as keyof typeof severityOrder] -
-        severityOrder[b.severity as keyof typeof severityOrder];
+        (SEVERITY_ORDER[a.severity] ?? 4) -
+        (SEVERITY_ORDER[b.severity] ?? 4);
 
       if (severityDiff !== 0) {
         return severityDiff;
@@ -228,10 +215,12 @@ export class IssueCalibrator {
  * @deprecated 使用 IssueCalibrator 替代（修正拼写错误）
  * 保留旧名称作为 deprecated alias，确保向后兼容
  */
+// eslint-disable-next-line no-redeclare
 export const IssueCalibrtor = IssueCalibrator;
 
 /**
  * @deprecated 使用 mergeDuplicates 替代（修正拼写错误）
  * mergeeDuplicates 是旧的拼写错误名称
  */
+// eslint-disable-next-line no-redeclare
 export type IssueCalibrtor = IssueCalibrator;

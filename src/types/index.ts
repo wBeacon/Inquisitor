@@ -4,3 +4,5 @@
  */
 export * from './review';
 export * from './agent';
+export * from './meta-review';
+export * from './history';

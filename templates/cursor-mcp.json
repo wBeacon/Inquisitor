@@ -1,0 +1,10 @@
+{
+  "_comment": "Inquisitor MCP Server 配置 - Cursor。将此文件内容复制到项目根目录的 .cursor/mcp.json 中，Cursor 将自动连接 Inquisitor MCP Server。",
+  "mcpServers": {
+    "inquisitor": {
+      "command": "npx",
+      "args": ["inquisitor-mcp", "--stdio"],
+      "description": "Inquisitor 对抗式高强度代码审查引擎，提供 review_diff/review_files/configure 工具"
+    }
+  }
+}
